@@ -356,9 +356,7 @@ const createCustomServerClient = (session: StoredSession, config: ReturnType<typ
             client_secret: config.clientSecret,
           });
 
-          const tokenUrl = oauth2Url.includes('/oauth2/') || oauth2Url.includes('/v1/') 
-            ? `${oauth2Url}/token`.replace('/v1/token', '/token').replace('//token', '/token')
-            : `${oauth2Url}/v1/token`;
+          const tokenUrl = `${oauth2Url}/oauth2/token`;
 
           const response = await fetch(tokenUrl, {
             method: "POST",
@@ -389,9 +387,7 @@ const createCustomServerClient = (session: StoredSession, config: ReturnType<typ
           return normalized;
         },
         getUserInfo: async () => {
-          const userInfoUrl = oauth2Url.includes('/v1/') 
-            ? `${oauth2Url}/userinfo`
-            : `${oauth2Url}/v1/userinfo`;
+          const userInfoUrl = `${oauth2Url}/oauth2/userinfo`;
           return authFetch(userInfoUrl);
         },
         refresh: async () => {
@@ -407,9 +403,7 @@ const createCustomServerClient = (session: StoredSession, config: ReturnType<typ
             client_secret: config.clientSecret,
           });
 
-          const tokenUrl = oauth2Url.includes('/oauth2/') || oauth2Url.includes('/v1/') 
-            ? `${oauth2Url}/token`.replace('/v1/token', '/token').replace('//token', '/token')
-            : `${oauth2Url}/v1/token`;
+          const tokenUrl = `${oauth2Url}/oauth2/token`;
 
           const response = await fetch(tokenUrl, {
             method: "POST",
@@ -498,7 +492,7 @@ const createCustomPublicClient = (config: ReturnType<typeof getConfig>): PublicC
               query.set(key, String(value));
             }
           });
-          return `${oauth2Url}/v1/authorize?${query}`;
+          return `${oauth2Url}/oauth2/authorize?${query}`;
         },
       },
     },
