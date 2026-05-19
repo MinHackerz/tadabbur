@@ -113,6 +113,7 @@ const loadRuntimeSplitSdk = async (): Promise<RuntimeSplitSdk> => {
   }
 
   try {
+    // Try runtime-split imports first
     const publicModule = await dynamicImport("@quranjs/api/public");
     const serverModule = await dynamicImport("@quranjs/api/server");
     const createPublicClient = publicModule.createPublicClient;
@@ -137,9 +138,31 @@ const loadRuntimeSplitSdk = async (): Promise<RuntimeSplitSdk> => {
 
     return cachedSdk;
   } catch (_error) {
-    throw new Error(
-      "The installed @quranjs/api package does not expose @quranjs/api/public and @quranjs/api/server yet. Install a local SDK build with `npm run sdk:local -- /path/to/api-js/packages/api`, or install a published runtime-split release.",
-    );
+    // Fallback to standard import if runtime-split is not available
+    try {
+      const mainModule = await dynamicImport("@quranjs/api");
+      const createPublicClient = mainModule.createPublicClient;
+      const createServerClient = mainModule.createServerClient;
+
+      if (typeof createPublicClient !== "function" || typeof createServerClient !== "function") {
+        throw new Error("SDK functions not available in main module.");
+      }
+
+      cachedSdk = {
+        createPublicClient: createPublicClient as (
+          options: UnknownRecord,
+        ) => PublicClient,
+        createServerClient: createServerClient as (
+          options: UnknownRecord,
+        ) => ServerClient,
+      };
+
+      return cachedSdk;
+    } catch (fallbackError) {
+      throw new Error(
+        "The installed @quranjs/api package does not expose the required client creation functions. Install a local SDK build with `npm run sdk:local -- /path/to/api-js/packages/api`, or install a published runtime-split release.",
+      );
+    }
   }
 };
 
