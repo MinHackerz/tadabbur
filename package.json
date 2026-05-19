@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "@quranjs/api": "^3.2.0",
+    "@quranjs/api": "^3.3.0",
     "@tailwindcss/postcss": "^4.3.0",
     "drizzle-orm": "^0.45.2",
     "jwt-decode": "^4.0.0",
