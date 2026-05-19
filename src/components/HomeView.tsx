@@ -47,6 +47,9 @@ export default function HomeView({
   isLoggedIn,
   bookmarkCount,
   notesCount,
+  hasGoal,
+  goalLabel,
+  goalPlanSummary,
   trId,
   onOpenReader,
 }: HomeViewProps) {
@@ -58,6 +61,9 @@ export default function HomeView({
         bookmarkCount={bookmarkCount}
         notesCount={notesCount}
         isLoggedIn={isLoggedIn}
+        hasGoal={hasGoal}
+        goalLabel={goalLabel}
+        goalPlanSummary={goalPlanSummary}
       />
 
       <footer className="flex justify-center mt-14 pt-8 border-t border-ny-gold/20 max-w-5xl mx-auto">

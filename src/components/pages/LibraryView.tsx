@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import type { BookmarkItem, BootstrapPayload, CollectionItem, NoteItem } from "@/lib/types";
+import type { BookmarkItem, BootstrapPayload, NoteItem } from "@/lib/types";
 import {
   btnDanger,
   btnPrimary,
@@ -19,7 +19,7 @@ import {
   textarea as TA,
 } from "@/components/ui/primitives";
 
-type Tab = "notes" | "bookmarks" | "collections";
+type Tab = "notes" | "bookmarks";
 
 interface LibraryViewProps {
   isLoggedIn: boolean;
@@ -74,17 +74,16 @@ export default function LibraryView({
   const tabs = [
     { id: "bookmarks" as const, label: "Bookmarks", count: bookmarks.length },
     { id: "notes" as const, label: "Notes", count: notes.length },
-    { id: "collections" as const, label: "Collections", count: collections.length },
   ];
 
   return (
     <PageContent>
       <PageHero
         title="Your library"
-        subtitle="Bookmarks, personal notes, and collections — everything you save while reading lives here."
+        subtitle="Bookmarks and personal notes — everything you save while reading lives here."
       />
 
-      {!isLoggedIn && <SignInBanner message="Sign in to sync bookmarks, notes, and collections across devices." />}
+      {!isLoggedIn && <SignInBanner message="Sign in to sync bookmarks and notes across devices." />}
 
       <TabBar tabs={tabs} active={tab} onChange={(id) => { setTab(id); setShowAdd(false); }} />
 
@@ -93,7 +92,6 @@ export default function LibraryView({
           <h3 className="font-bold text-ink text-[15px] tracking-[-0.01em]">
             {tab === "bookmarks" && "Saved verses"}
             {tab === "notes" && "Study notes"}
-            {tab === "collections" && "Collections"}
           </h3>
           {isLoggedIn && (
             <button type="button" className={btnSecondary + " !py-2 !px-4 text-[12px]"} onClick={() => setShowAdd(!showAdd)}>
@@ -131,16 +129,6 @@ export default function LibraryView({
           </div>
         )}
 
-        {showAdd && isLoggedIn && tab === "collections" && (
-          <div className="p-4 mb-6 rounded-xl border border-border bg-surface-secondary/50 space-y-3">
-            <Label>Collection name</Label>
-            <input className={IN} value={collName} onChange={(e) => setCollName(e.target.value)} placeholder="e.g. Ramadan reflections" />
-            <button type="button" className={btnPrimary + " w-full"} onClick={() => { createColl(); setShowAdd(false); }}>
-              Create collection
-            </button>
-          </div>
-        )}
-
         {tab === "bookmarks" && (
           <LibraryList
             isEmpty={bookmarks.length === 0}
@@ -158,14 +146,6 @@ export default function LibraryView({
           <LibraryList isEmpty={notes.length === 0} error={data.notes.error} gating={data.notes.gatingMessage} empty="No notes yet. Add insights while reading or tap + Add new.">
             {notes.map((n) => (
               <NoteRow key={n.id ?? n.body} item={n} onDelete={() => deleteNote(n.id)} openReader={openReader} />
-            ))}
-          </LibraryList>
-        )}
-
-        {tab === "collections" && (
-          <LibraryList isEmpty={collections.length === 0} error={data.collections.error} gating={data.collections.gatingMessage} empty="Organize verses into themed collections.">
-            {collections.map((c) => (
-              <CollectionRow key={c.id ?? c.name} item={c} onDelete={() => deleteColl(c.id)} />
             ))}
           </LibraryList>
         )}
@@ -250,22 +230,6 @@ function NoteRow({
         </button>
       </div>
       <p className="text-[14px] text-ink leading-relaxed">{item.body}</p>
-    </div>
-  );
-}
-
-function CollectionRow({ item, onDelete }: { item: CollectionItem; onDelete: () => void }) {
-  return (
-    <div className="group flex items-center justify-between gap-3 p-4 bg-surface-secondary/60 border border-border rounded-xl">
-      <div>
-        <span className="text-[15px] font-semibold text-ink">{item.name}</span>
-        <span className="block text-[12px] text-ink-tertiary mt-1">
-          {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "Recently updated"}
-        </span>
-      </div>
-      <button type="button" className={btnDanger + " shrink-0 md:opacity-0 md:group-hover:opacity-100"} onClick={onDelete}>
-        Remove
-      </button>
     </div>
   );
 }

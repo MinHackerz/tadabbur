@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import TadabburLogo from "./TadabburLogo";
 
-export type ActiveRoute = "home"|"reader"|"search"|"library"|"goals"|"reflect"|"settings";
+export type ActiveRoute = "home"|"reader"|"search"|"library"|"goals"|"settings";
 
 const NAV_BASE: {href:string;key:ActiveRoute;label:string;dynamicReader?:boolean}[] = [
   {href:"/",key:"home",label:"Home"},
@@ -11,7 +11,6 @@ const NAV_BASE: {href:string;key:ActiveRoute;label:string;dynamicReader?:boolean
   {href:"/search",key:"search",label:"Search"},
   {href:"/library",key:"library",label:"Library"},
   {href:"/goals",key:"goals",label:"Goals"},
-  {href:"/reflect",key:"reflect",label:"Reflect"},
 ];
 
 const MOBILE_TAB: {href:string;key:ActiveRoute;label:string;icon:React.ReactNode}[] = [

@@ -16,6 +16,13 @@ export async function GET(request: NextRequest) {
     sessionContext.session.oidcLogoutIdTokenHint ??
     null;
 
+  // Clear all session data before logout
+  sessionContext.session.userSession = null;
+  sessionContext.session.oauth = null;
+  sessionContext.session.oidcLogoutIdTokenHint = null;
+  sessionContext.session.authError = null;
+  sessionContext.session.flashNotice = null;
+
   if (!idToken) {
     return withDestroyedSessionRedirect(
       sessionContext,

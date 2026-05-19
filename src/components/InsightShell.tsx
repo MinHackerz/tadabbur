@@ -5,13 +5,12 @@ import { btnPrimary as B1, card as C } from "@/components/ui/primitives";
 import { useInsight } from "@/components/useInsight";
 import GoalsView from "@/components/pages/GoalsView";
 import LibraryView from "@/components/pages/LibraryView";
-import ReflectView from "@/components/pages/ReflectView";
 import SearchView from "@/components/pages/SearchView";
 import SettingsView from "@/components/pages/SettingsView";
 import HomeView from "./HomeView";
 import { summarizeGoalPlan } from "@/lib/goalPlan";
 
-const FEATURE_ROUTES = new Set(["search", "library", "goals", "reflect", "settings"]);
+const FEATURE_ROUTES = new Set(["search", "library", "goals", "settings"]);
 
 export default function InsightShell({route,chapterId="1"}:{route:string;chapterId?:string}){
   const h=useInsight(chapterId,route);
@@ -108,11 +107,15 @@ export default function InsightShell({route,chapterId="1"}:{route:string;chapter
           setReaderCh={h.setReaderCh}
           chapters={d.contentPreview.items}
           bookmarkedKeys={h.bookmarkedKeys}
+          notes={d.notes.items}
           isLoggedIn={li}
           onNavigateSurah={h.navigateSurah}
           onJumpSurah={h.jumpReader}
           onBookmarkVerse={h.bookmarkVerse}
+          onUnbookmarkVerse={h.unbookmarkVerse}
           onNoteVerse={h.noteVerse}
+          onUpdateNote={h.updateNote}
+          onDeleteNote={h.deleteNote}
           onCopyVerse={h.copyVerse}
           readingMode={h.readingMode}
           setReadingMode={h.setReadingMode}
@@ -163,18 +166,6 @@ export default function InsightShell({route,chapterId="1"}:{route:string;chapter
           isLoggedIn={li}
           data={d}
           submitGoalPayload={h.submitGoalPayload}
-        />
-      )}
-
-      {route === "reflect" && (
-        <ReflectView
-          isLoggedIn={li}
-          data={d}
-          refVK={h.refVK}
-          setRefVK={h.setRefVK}
-          refBody={h.refBody}
-          setRefBody={h.setRefBody}
-          createRef={h.createRef}
         />
       )}
 

@@ -441,16 +441,24 @@ const createEmptySlice = (gatingMessage: string | null = null) => ({
 
 const createScopeGate = (scope: string): string => `Requires the \`${scope}\` scope.`;
 
-const loadSafely = async (loader: () => Promise<unknown>) => {
+const loadSafely = async (loader: () => Promise<unknown>, suppressNotFound = false) => {
   try {
     return {
       data: await loader(),
       error: null,
     };
   } catch (error) {
+    const errorMessage = formatError(error);
+    // Suppress 404 errors for optional features if requested
+    if (suppressNotFound && errorMessage.includes("404")) {
+      return {
+        data: null,
+        error: null,
+      };
+    }
     return {
       data: null,
-      error: formatError(error),
+      error: errorMessage,
     };
   }
 };
@@ -1008,10 +1016,10 @@ export const loadBootstrapData = async (
       ? loadSafely(() => serverClient.auth.v1.preferences.get())
       : Promise.resolve({ data: null, error: null }),
     hasScope(grantedScopes, "user")
-      ? loadSafely(() => serverClient.quranReflect.v1.users.profile())
+      ? loadSafely(() => serverClient.quranReflect.v1.users.profile(), true)
       : Promise.resolve({ data: null, error: null }),
     hasScope(grantedScopes, "post")
-      ? loadSafely(() => serverClient.quranReflect.v1.posts.feed(DEFAULT_FEED_QUERY))
+      ? loadSafely(() => serverClient.quranReflect.v1.posts.feed(DEFAULT_FEED_QUERY), true)
       : Promise.resolve({ data: null, error: null }),
   ]);
 

@@ -28,8 +28,6 @@ export function useInsight(chapterId:string,route:string) {
   const [bmCh,setBmCh]=useState("1");
   const [bmV,setBmV]=useState("1");
   const [collName,setCollName]=useState("");
-  const [refVK,setRefVK]=useState("1:1");
-  const [refBody,setRefBody]=useState("");
   const [goalTxt,setGoalTxt]=useState(JSON.stringify({category:"QURAN",period:"daily",targetAmount:2,type:"PAGES"},null,2));
   const [prefTxt,setPrefTxt]=useState(JSON.stringify({fontSize:3,mushafLines:15,reciter:7},null,2));
   const defSearch=useDeferredValue(searchIn);
@@ -55,11 +53,6 @@ export function useInsight(chapterId:string,route:string) {
   },[chapterId,route,sessionHydrated,surahId,trId,auId,patchSession]);
   useEffect(()=>{if(data?.flashNotice?.message)push(data.flashNotice.message,data.flashNotice.type==="success")},[data?.flashNotice?.message,data?.flashNotice?.type]);
   useEffect(()=>{if(data?.authError)push(data.authError,false)},[data?.authError]);
-  useEffect(()=>{
-    if(route!=="reflect"||typeof window==="undefined")return;
-    const v=new URLSearchParams(window.location.search).get("verse");
-    if(v)setRefVK(v);
-  },[route]);
 
   const readerPath=useMemo(()=>`/api/reader/${encodeURIComponent(readerCh||chapterId||"1")}?tr=${encodeURIComponent(trId)}&au=${encodeURIComponent(auId)}`,[chapterId,readerCh,trId,auId]);
   const {data:sData,isLoading:sLoading,mutate:sMut}=useSWR<SearchP>(debQ?`/api/search?query=${encodeURIComponent(debQ)}&tr=${encodeURIComponent(trId)}`:null,fetchJ,{keepPreviousData:true,revalidateOnFocus:false});
@@ -79,7 +72,6 @@ export function useInsight(chapterId:string,route:string) {
   async function submitGoalPayload(payload:Record<string,unknown>){try{const r=await mutReq("/api/goals","POST",{payload});setGoalTxt(JSON.stringify(payload,null,2));push(r.message??"Saved.",true);await mutate()}catch(e){push((e as MutR).message??"Failed.",false)}}
   async function submitGoal(){const p=tryJ(goalTxt);if(!p){push("Invalid JSON.",false);return}await submitGoalPayload(p)}
   async function submitPref(){const p=tryJ(prefTxt);if(!p){push("Invalid JSON.",false);return}try{const r=await mutReq("/api/preferences","POST",{payload:p});push(r.message??"Saved.",true);await mutate()}catch(e){push((e as MutR).message??"Failed.",false)}}
-  async function createRef(){const b=refBody.trim(),vk=refVK.trim();if(!b||!vk){push("Body and verse key required.",false);return}try{const r=await mutReq("/api/reflections","POST",{body:b,verseKey:vk});push(r.message??"Posted.",true);setRefBody("");await mutate()}catch(e){push((e as MutR).message??"Failed.",false)}}
   function clearSearch(){setSearchIn("");setDebQ("");sMut({error:null,navigationItems:[],query:"",verseItems:[]},false)}
 
   const navigateSurah = useCallback((id:number)=>{
@@ -115,6 +107,37 @@ export function useInsight(chapterId:string,route:string) {
     }
   }
 
+  async function unbookmarkVerse(verseKey:string){
+    if(!data?.isLoggedIn){push("Sign in first.",false);return}
+    const bookmark=data.bookmarks.items.find(b=>b.verseKey===verseKey);
+    if(!bookmark?.id)return;
+    const prev=data.bookmarks.items;
+    repl<BookmarkItem>("bookmarks",i=>i.filter(x=>x.id!==bookmark.id));
+    try{
+      await mutReq(`/api/bookmarks/${bookmark.id}`,"DELETE");
+      push("Bookmark removed.",true);
+    }catch(e){
+      repl<BookmarkItem>("bookmarks",()=>prev);
+      push((e as MutR).message??"Failed.",false);
+      await mutate();
+    }
+  }
+
+  async function updateNote(noteId:string,body:string){
+    if(!data?.isLoggedIn){push("Sign in first.",false);return}
+    const prev=data.notes.items;
+    repl<NoteItem>("notes",i=>i.map(x=>x.id===noteId?{...x,body}:x));
+    try{
+      const r=await mutReq<NoteItem>(`/api/notes/${noteId}`,"PUT",{body});
+      repl<NoteItem>("notes",i=>i.map(x=>x.id===noteId?r.item??x:x));
+      push(r.message??"Note updated.",true);
+    }catch(e){
+      repl<NoteItem>("notes",()=>prev);
+      push((e as MutR).message??"Failed.",false);
+      await mutate();
+    }
+  }
+
   async function noteVerse(verseKey:string,body:string){
     if(!data?.isLoggedIn){push("Sign in to save notes.",false);return}
     setNoteVK(verseKey);
@@ -142,5 +165,5 @@ export function useInsight(chapterId:string,route:string) {
     return s;
   },[data?.bookmarks.items]);
 
-  return {data,bErr,isLoading,toasts,searchIn,setSearchIn,sData,sLoading,rData,rErr,rLoading,readerCh,setReaderCh,noteVK,setNoteVK,noteBody,setNoteBody,bmCh,setBmCh,bmV,setBmV,collName,setCollName,refVK,setRefVK,refBody,setRefBody,goalTxt,setGoalTxt,prefTxt,setPrefTxt,trId,setTrId,auId,setAuId,surahId,setSurahId,readingMode,setReadingMode,fontSize,setFontSize,darkMode,toggleDarkMode,sessionHydrated,openReader,buildReaderUrl,createNote,deleteNote,createBm,deleteBm,createColl,deleteColl,refreshSession,submitGoal,submitGoalPayload,submitPref,createRef,clearSearch,jumpReader,navigateSurah,bookmarkVerse,noteVerse,copyVerse,bookmarkedKeys,mutate,push,errMsg};
+  return {data,bErr,isLoading,toasts,searchIn,setSearchIn,sData,sLoading,rData,rErr,rLoading,readerCh,setReaderCh,noteVK,setNoteVK,noteBody,setNoteBody,bmCh,setBmCh,bmV,setBmV,collName,setCollName,goalTxt,setGoalTxt,prefTxt,setPrefTxt,trId,setTrId,auId,setAuId,surahId,setSurahId,readingMode,setReadingMode,fontSize,setFontSize,darkMode,toggleDarkMode,sessionHydrated,openReader,buildReaderUrl,createNote,deleteNote,updateNote,createBm,deleteBm,createColl,deleteColl,refreshSession,submitGoal,submitGoalPayload,submitPref,clearSearch,jumpReader,navigateSurah,bookmarkVerse,unbookmarkVerse,noteVerse,copyVerse,bookmarkedKeys,mutate,push,errMsg};
 }

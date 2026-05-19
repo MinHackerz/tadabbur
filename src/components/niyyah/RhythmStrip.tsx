@@ -16,6 +16,9 @@ interface Props {
   notesCount: number;
   isLoggedIn: boolean;
   onContinueReader: (surahId: number, hash?: string) => void;
+  hasGoal: boolean;
+  goalLabel?: string;
+  goalPlanSummary?: string | null;
 }
 
 export default function RhythmStrip({
@@ -23,6 +26,9 @@ export default function RhythmStrip({
   notesCount,
   isLoggedIn,
   onContinueReader,
+  hasGoal,
+  goalLabel,
+  goalPlanSummary,
 }: Props) {
   const [eng, setEng] = useState<ReadingEngagement | null>(null);
 
@@ -33,12 +39,6 @@ export default function RhythmStrip({
   const streak = eng?.streakDays ?? 0;
   const lastSurah = eng?.lastSurahId ? getSurah(eng.lastSurahId) : null;
   const lastVerse = eng?.lastVerseNumber ?? null;
-  const dailyTarget = eng?.dailyAyahGoal ?? 10;
-  const dailyDone = eng?.todayAyahsMarked ?? 0;
-  const dailyPct = Math.min(
-    100,
-    Math.round((dailyDone / Math.max(1, dailyTarget)) * 100),
-  );
   const mercyLeft = eng ? mercyAvailable(eng) : true;
 
   return (
@@ -117,26 +117,49 @@ export default function RhythmStrip({
         </div>
       </RhythmCard>
 
-      {/* Daily focus */}
+      {/* Regular Goals */}
       <RhythmCard>
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-ny-gold m-0">
-          Today&apos;s focus
+          Regular goals
         </p>
-        <div className="flex items-baseline gap-1 mt-2">
-          <span className="font-[var(--font-niyyah-display)] text-[2.3rem] font-semibold text-ny-ink leading-none">
-            {dailyDone}
-          </span>
-          <span className="text-ny-charcoal/55 font-semibold ml-1">/ {dailyTarget} ayahs</span>
-        </div>
-        <div className="mt-3 h-1.5 rounded-full bg-ny-charcoal/8 overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-ny-gold-soft to-ny-gold transition-[width] duration-500 shadow-[0_0_8px_rgba(184,146,74,0.4)]"
-            style={{ width: `${dailyPct}%` }}
-          />
-        </div>
-        <p className="text-[12px] text-ny-sage italic m-0 mt-auto pt-3 border-t border-dashed border-ny-gold/25">
-          A small portion daily, kept gently.
-        </p>
+        {hasGoal && goalLabel ? (
+          <>
+            <div className="flex items-center gap-2 mt-2">
+              <svg className="w-5 h-5 text-ny-forest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-[var(--font-niyyah-display)] text-[1.1rem] font-semibold text-ny-ink leading-none">
+                Active
+              </span>
+            </div>
+            <p className="text-[13px] text-ny-ink font-medium m-0 mt-1">
+              {goalLabel}
+            </p>
+            {goalPlanSummary && (
+              <p className="text-[12px] text-ny-sage italic m-0 mt-1">
+                {goalPlanSummary}
+              </p>
+            )}
+            <Link
+              href="/goals"
+              className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 border border-ny-gold/40 text-ny-ink bg-ny-cream-warm/60 text-[13px] font-semibold hover:bg-ny-cream-warm transition-colors"
+            >
+              Manage goal <ArrowRight />
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] text-ny-charcoal/65 italic m-0 mt-2 leading-snug">
+              Set a daily or weekly reading habit to build consistency.
+            </p>
+            <Link
+              href="/goals"
+              className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 bg-ny-forest text-white text-[13px] font-semibold hover:bg-ny-forest-deep transition-colors shadow-[0_8px_18px_rgba(20,48,40,0.28)] hover:shadow-[0_10px_22px_rgba(11,28,23,0.35)]"
+            >
+              Set a goal <ArrowRight />
+            </Link>
+          </>
+        )}
       </RhythmCard>
 
       {/* Bookmarks + notes */}

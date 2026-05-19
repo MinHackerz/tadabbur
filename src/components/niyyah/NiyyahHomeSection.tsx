@@ -38,6 +38,9 @@ interface Props {
   bookmarkCount: number;
   notesCount: number;
   isLoggedIn: boolean;
+  hasGoal: boolean;
+  goalLabel?: string;
+  goalPlanSummary?: string | null;
 }
 
 export default function NiyyahHomeSection({
@@ -46,6 +49,9 @@ export default function NiyyahHomeSection({
   bookmarkCount,
   notesCount,
   isLoggedIn,
+  hasGoal,
+  goalLabel,
+  goalPlanSummary,
 }: Props) {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -259,8 +265,67 @@ export default function NiyyahHomeSection({
       ) : !journey ? (
         <>
           <EmptyHero />
+          
           <SectionTitle eyebrow="Set your niyyah" title="Choose your journey" />
           <JourneyTypeSelector onSelect={handleSelectType} />
+          
+          {/* Custom Goals Section */}
+          <div className="max-w-6xl mx-auto mt-8 mb-6">
+            <div className="relative overflow-hidden rounded-2xl border border-ny-charcoal/10 bg-gradient-to-br from-ny-cream via-ny-cream-warm to-ny-cream shadow-[0_8px_24px_rgba(28,58,47,0.08)]">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-ny-gold/10 to-transparent rounded-full -mr-24 -mt-24" />
+              <div className="relative px-6 py-6 sm:px-8 sm:py-7">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-7 h-7 text-ny-forest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <h3 className="font-[var(--font-niyyah-display)] text-[1.35rem] sm:text-[1.65rem] font-semibold text-ny-ink m-0 tracking-tight">
+                        Or set a regular reading goal
+                      </h3>
+                    </div>
+                    <p className="text-[0.88rem] sm:text-[0.92rem] text-ny-charcoal/85 leading-relaxed m-0 max-w-2xl">
+                      Prefer a simpler approach? Create daily or weekly reading habits with pages, verses, or time-based targets. 
+                      Perfect for building consistent routines alongside your Niyyah journey.
+                    </p>
+                  </div>
+                  <a
+                    href="/goals"
+                    className="shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-ny-forest text-ny-cream font-semibold text-[14px] hover:bg-ny-ink transition-colors shadow-[0_4px_12px_rgba(28,58,47,0.2)] hover:shadow-[0_6px_16px_rgba(28,58,47,0.3)]"
+                  >
+                    <span>Set a goal</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </a>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-ny-charcoal/10">
+                  <div className="text-center">
+                    <svg className="w-6 h-6 mx-auto mb-1.5 text-ny-forest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-[11px] font-semibold text-ny-ink m-0">Pages</p>
+                    <p className="text-[10px] text-ny-charcoal/60 m-0">Track by Quran pages</p>
+                  </div>
+                  <div className="text-center">
+                    <svg className="w-6 h-6 mx-auto mb-1.5 text-ny-forest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <p className="text-[11px] font-semibold text-ny-ink m-0">Verses</p>
+                    <p className="text-[10px] text-ny-charcoal/60 m-0">Count individual verses</p>
+                  </div>
+                  <div className="text-center">
+                    <svg className="w-6 h-6 mx-auto mb-1.5 text-ny-forest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-[11px] font-semibold text-ny-ink m-0">Minutes</p>
+                    <p className="text-[10px] text-ny-charcoal/60 m-0">Measure reading time</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </>
       ) : (
         <>
@@ -313,6 +378,9 @@ export default function NiyyahHomeSection({
         notesCount={notesCount}
         isLoggedIn={isLoggedIn}
         onContinueReader={(surah, hash) => onOpenReader(surah, hash)}
+        hasGoal={hasGoal}
+        goalLabel={goalLabel}
+        goalPlanSummary={goalPlanSummary}
       />
 
       {/* ── The Wall ────────────────────────────────────────── */}

@@ -55,7 +55,7 @@ export default function SettingsView({
         subtitle="Your account and how the reader looks and sounds. Changes apply on this device right away."
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start mb-8">
+      <div className="space-y-6 lg:space-y-8 mb-8">
         <div className={card + " feature-card"}>
           <SectionTitle>Account</SectionTitle>
           {data.userInfo.error ? (
@@ -90,6 +90,17 @@ export default function SettingsView({
               </a>
             )}
           </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
+          <Link href="/goals" className={card + " feature-card feature-card--link !py-4"}>
+            <p className="text-[14px] font-bold text-ink">Reading goals</p>
+            <p className="text-[12px] text-ink-tertiary mt-1">Set daily or weekly targets</p>
+          </Link>
+          <Link href="/library" className={card + " feature-card feature-card--link !py-4"}>
+            <p className="text-[14px] font-bold text-ink">Library</p>
+            <p className="text-[12px] text-ink-tertiary mt-1">Bookmarks, notes, and collections</p>
+          </Link>
         </div>
 
         <div className={card + " feature-card"}>
@@ -184,17 +195,6 @@ export default function SettingsView({
             {translationLabel(trId)} · {reciterLabel(auId)}
           </p>
         </div>
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
-        <Link href="/goals" className={card + " feature-card feature-card--link !py-4"}>
-          <p className="text-[14px] font-bold text-ink">Reading goals</p>
-          <p className="text-[12px] text-ink-tertiary mt-1">Set daily or weekly targets</p>
-        </Link>
-        <Link href="/library" className={card + " feature-card feature-card--link !py-4"}>
-          <p className="text-[14px] font-bold text-ink">Library</p>
-          <p className="text-[12px] text-ink-tertiary mt-1">Bookmarks, notes, and collections</p>
-        </Link>
       </div>
     </PageContent>
   );

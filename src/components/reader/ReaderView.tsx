@@ -31,11 +31,15 @@ interface ReaderViewProps {
   setReaderCh: (v: string) => void;
   chapters: ContentPreviewItem[];
   bookmarkedKeys: Set<string>;
+  notes: Array<{ id: string | null; body: string; ranges: string[] }>;
   isLoggedIn: boolean;
   onNavigateSurah: (id: number) => void;
   onJumpSurah: () => void;
   onBookmarkVerse: (chapter: number, verse: number) => void;
+  onUnbookmarkVerse: (verseKey: string) => void;
   onNoteVerse: (verseKey: string, body: string) => void;
+  onUpdateNote: (noteId: string, body: string) => void;
+  onDeleteNote: (noteId: string) => void;
   onCopyVerse: (text: string) => void;
   readingMode: ReadingMode;
   fontSize: number;
@@ -58,11 +62,15 @@ export default function ReaderView({
   setReaderCh,
   chapters,
   bookmarkedKeys,
+  notes,
   isLoggedIn,
   onNavigateSurah,
   onJumpSurah,
   onBookmarkVerse,
+  onUnbookmarkVerse,
   onNoteVerse,
+  onUpdateNote,
+  onDeleteNote,
   onCopyVerse,
   readingMode,
   fontSize,
@@ -74,7 +82,7 @@ export default function ReaderView({
   const [activeVerse, setActiveVerse] = useState<number | null>(null);
   const [surahPickerOpen, setSurahPickerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [noteModal, setNoteModal] = useState<{ verseKey: string } | null>(null);
+  const [noteModal, setNoteModal] = useState<{ verseKey: string; existingNote?: { id: string; body: string } } | null>(null);
   const [noteText, setNoteText] = useState("");
   const [insightVerse, setInsightVerse] = useState<{
     verseKey: string;
@@ -142,6 +150,37 @@ export default function ReaderView({
   const surahPlaying = readerAudio.source === "surah" && readerAudio.isPlaying;
   const surahAudioActive = readerAudio.source === "surah";
   const scrollCompact = useReaderScrollCompact(chapterId);
+
+  // Helper to find note for a verse
+  const findNoteForVerse = (verseKey: string) => {
+    return notes.find((note) => 
+      note.ranges.some((range) => {
+        const [start, end] = range.split('-');
+        return start === verseKey || end === verseKey || range === verseKey;
+      })
+    );
+  };
+
+  // Helper to toggle bookmark
+  const handleToggleBookmark = (verseKey: string, chapter: number, verse: number) => {
+    if (bookmarkedKeys.has(verseKey)) {
+      onUnbookmarkVerse(verseKey);
+    } else {
+      onBookmarkVerse(chapter, verse);
+    }
+  };
+
+  // Helper to open note modal (create or edit)
+  const handleOpenNoteModal = (verseKey: string) => {
+    const existingNote = findNoteForVerse(verseKey);
+    if (existingNote && existingNote.id) {
+      setNoteModal({ verseKey, existingNote: { id: existingNote.id, body: existingNote.body } });
+      setNoteText(existingNote.body);
+    } else {
+      setNoteModal({ verseKey });
+      setNoteText("");
+    }
+  };
 
   const handlePlaySurah = () => {
     if (!playable.length) return;
@@ -273,6 +312,7 @@ export default function ReaderView({
             {rData.verses.map((v) => {
               const vk = v.verseKey ?? `${cid}:${v.verseNumber}`;
               const copyText = [v.arabicText, v.translationText].filter(Boolean).join("\n\n");
+              const verseNote = findNoteForVerse(vk);
               return (
                 <VerseCard
                   key={v.id}
@@ -282,6 +322,7 @@ export default function ReaderView({
                   readingMode={readingMode}
                   fontClasses={fontClasses}
                   isBookmarked={bookmarkedKeys.has(vk)}
+                  hasNote={!!verseNote}
                   isActive={activeVerse === v.verseNumber}
                   isAudioPlaying={
                     readerAudio.activeVerse === v.verseNumber &&
@@ -293,11 +334,8 @@ export default function ReaderView({
                     readerAudio.activeVerse === v.verseNumber
                   }
                   isLoggedIn={isLoggedIn}
-                  onBookmark={() => onBookmarkVerse(cid, v.verseNumber ?? 1)}
-                  onNote={() => {
-                    setNoteModal({ verseKey: vk });
-                    setNoteText("");
-                  }}
+                  onBookmark={() => handleToggleBookmark(vk, cid, v.verseNumber ?? 1)}
+                  onNote={() => handleOpenNoteModal(vk)}
                   onCopy={() => onCopyVerse(copyText)}
                   onPlay={() =>
                     v.audioUrl && readerAudio.toggleVerse(v.audioUrl, v.verseNumber ?? 0)
@@ -358,13 +396,15 @@ export default function ReaderView({
       )}
 
       {noteModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/10 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/10 backdrop-blur-[2px]" onClick={() => setNoteModal(null)}>
           <div 
             className="w-full max-w-md border border-border rounded-2xl p-6 shadow-xl" 
             style={{ backgroundColor: 'var(--color-bg)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-ink text-[16px] mb-1">Add Note</h3>
+            <h3 className="font-bold text-ink text-[16px] mb-1">
+              {noteModal.existingNote ? "Edit Note" : "Add Note"}
+            </h3>
             <p className="text-[13px] text-ink-secondary mb-4">Verse {noteModal.verseKey}</p>
             <textarea
               className={input + " min-h-[120px] resize-y mb-4"}
@@ -374,6 +414,21 @@ export default function ReaderView({
               autoFocus
             />
             <div className="flex gap-3 justify-end">
+              {noteModal.existingNote && (
+                <button 
+                  type="button" 
+                  className="inline-flex items-center px-5 py-2.5 rounded-xl font-semibold text-[13px] bg-danger-subtle text-danger hover:bg-danger/10 transition-colors mr-auto"
+                  onClick={() => {
+                    if (noteModal.existingNote?.id) {
+                      onDeleteNote(noteModal.existingNote.id);
+                      setNoteModal(null);
+                      setNoteText("");
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              )}
               <button type="button" className={btnSecondary} onClick={() => setNoteModal(null)}>
                 Cancel
               </button>
@@ -382,12 +437,18 @@ export default function ReaderView({
                 className="inline-flex items-center px-5 py-2.5 rounded-xl font-semibold text-[13px] bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={!noteText.trim()}
                 onClick={() => {
-                  if (noteText.trim()) onNoteVerse(noteModal.verseKey, noteText.trim());
-                  setNoteModal(null);
-                  setNoteText("");
+                  if (noteText.trim()) {
+                    if (noteModal.existingNote?.id) {
+                      onUpdateNote(noteModal.existingNote.id, noteText.trim());
+                    } else {
+                      onNoteVerse(noteModal.verseKey, noteText.trim());
+                    }
+                    setNoteModal(null);
+                    setNoteText("");
+                  }
                 }}
               >
-                Save to Library
+                {noteModal.existingNote ? "Update" : "Save to Library"}
               </button>
             </div>
           </div>

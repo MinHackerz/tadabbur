@@ -12,6 +12,7 @@ interface VerseCardProps {
   readingMode: ReadingMode;
   fontClasses: { arabic: string; translation: string };
   isBookmarked: boolean;
+  hasNote: boolean;
   isActive: boolean;
   isAudioPlaying?: boolean;
   isSurahHighlight?: boolean;
@@ -30,6 +31,7 @@ export default function VerseCard({
   readingMode,
   fontClasses,
   isBookmarked,
+  hasNote,
   isActive,
   isAudioPlaying = false,
   isSurahHighlight = false,
@@ -166,25 +168,22 @@ export default function VerseCard({
                 />
                 <ActionChip
                   onClick={onNote}
-                  label="Note"
+                  active={hasNote}
+                  label={hasNote ? "Note" : "Note"}
                   icon={
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={14} height={14}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-                    </svg>
+                    hasNote ? (
+                      <svg viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                        <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={14} height={14}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                      </svg>
+                    )
                   }
                 />
               </>
             )}
-            <ActionChip
-              onPointerDown={() => prefetchReflect(verseKey)}
-              onClick={() => onOpenInsights("reflect")}
-              label="Reflect"
-              icon={
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={14} height={14}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
-                </svg>
-              }
-            />
           </div>
         </div>
       </div>

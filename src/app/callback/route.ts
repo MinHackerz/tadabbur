@@ -23,7 +23,11 @@ export async function GET(request: NextRequest) {
   const oauth = sessionContext.session.oauth;
 
   // No pending OAuth state and no params — just redirect home (e.g. post-logout redirect)
+  // Ensure session is completely empty after logout
   if (!oauth && !error && !code) {
+    sessionContext.session.userSession = null;
+    sessionContext.session.oauth = null;
+    sessionContext.session.oidcLogoutIdTokenHint = null;
     return withSessionRedirect(sessionContext, homeUrl);
   }
 
@@ -64,7 +68,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Clear OAuth state after successful authentication
     sessionContext.session.oauth = null;
+    sessionContext.session.authError = null;
+    
+    // Rotate session ID for security
     rotateSession(sessionContext);
     return withSessionRedirect(sessionContext, homeUrl);
   } catch (err) {
