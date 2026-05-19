@@ -65,7 +65,13 @@ export function useInsight(chapterId:string,route:string) {
   async function createNote(){if(!data?.isLoggedIn){push("Sign in first.",false);return}const vk=noteVK.trim(),b=noteBody.trim();if(!vk||!b){push("Verse key and body required.",false);return}const tmp:NoteItem={body:b,id:`t-${tid()}`,ranges:[`${vk}-${vk}`]};const prev=data.notes.items;repl<NoteItem>("notes",i=>[tmp,...i]);try{const r=await mutReq<NoteItem>("/api/notes","POST",{body:b,verseKey:vk});repl<NoteItem>("notes",i=>i.map(x=>x.id===tmp.id?r.item??x:x));setNoteBody("");push(r.message??"Note created.",true)}catch(e){repl<NoteItem>("notes",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
   async function deleteNote(id:string|null){if(!id)return;const prev=data?.notes.items??[];repl<NoteItem>("notes",i=>i.filter(x=>x.id!==id));try{const r=await mutReq(`/api/notes/${id}`,"DELETE");push(r.message??"Deleted.",true)}catch(e){repl<NoteItem>("notes",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
   async function createBm(){const cn=parseInt(bmCh),vn=parseInt(bmV);if(!cn||!vn){push("Invalid numbers.",false);return}const tmp:BookmarkItem={id:`t-${tid()}`,readerUrl:`/read/${cn}`,type:"ayah",verseKey:`${cn}:${vn}`};const prev=data?.bookmarks.items??[];repl<BookmarkItem>("bookmarks",i=>[tmp,...i]);try{const r=await mutReq<BookmarkItem>("/api/bookmarks","POST",{chapterNumber:cn,verseNumber:vn});repl<BookmarkItem>("bookmarks",i=>i.map(x=>x.id===tmp.id?r.item??x:x));push(r.message??"Bookmarked.",true)}catch(e){repl<BookmarkItem>("bookmarks",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
-  async function deleteBm(id:string|null){if(!id)return;const prev=data?.bookmarks.items??[];repl<BookmarkItem>("bookmarks",i=>i.filter(x=>x.id!==id));try{await mutReq(`/api/bookmarks/${id}`,"DELETE");push("Deleted.",true)}catch(e){repl<BookmarkItem>("bookmarks",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
+  async function deleteBm(id:string|null){
+    if(!id){push("Cannot remove — bookmark id missing. Try refreshing.",false);await mutate();return}
+    const prev=data?.bookmarks.items??[];
+    repl<BookmarkItem>("bookmarks",i=>i.filter(x=>x.id!==id));
+    try{await mutReq(`/api/bookmarks/${id}`,"DELETE");push("Deleted.",true)}
+    catch(e){repl<BookmarkItem>("bookmarks",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}
+  }
   async function createColl(){const n=collName.trim();if(!n){push("Name required.",false);return}const tmp:CollectionItem={id:`t-${tid()}`,name:n,updatedAt:new Date().toISOString()};const prev=data?.collections.items??[];repl<CollectionItem>("collections",i=>[tmp,...i]);try{const r=await mutReq<CollectionItem>("/api/collections","POST",{name:n});repl<CollectionItem>("collections",i=>i.map(x=>x.id===tmp.id?r.item??x:x));setCollName("");push(r.message??"Created.",true)}catch(e){repl<CollectionItem>("collections",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
   async function deleteColl(id:string|null){if(!id)return;const prev=data?.collections.items??[];repl<CollectionItem>("collections",i=>i.filter(x=>x.id!==id));try{await mutReq(`/api/collections/${id}`,"DELETE");push("Deleted.",true)}catch(e){repl<CollectionItem>("collections",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
   async function refreshSession(){try{const r=await mutReq("/api/session/refresh","POST");push(r.message??"Refreshed.",true);await mutate()}catch(e){push((e as MutR).message??"Failed.",false);await mutate()}}
@@ -93,12 +99,18 @@ export function useInsight(chapterId:string,route:string) {
 
   async function bookmarkVerse(chapter:number,verse:number){
     if(!data?.isLoggedIn){push("Sign in to bookmark verses.",false);return}
-    const tmp:BookmarkItem={id:`t-${tid()}`,readerUrl:`/read/${chapter}#verse-${verse}`,type:"ayah",verseKey:`${chapter}:${verse}`};
+    const vk=`${chapter}:${verse}`;
+    const tmpId=`t-${tid()}`;
+    const tmp:BookmarkItem={id:tmpId,readerUrl:`/read/${chapter}#verse-${verse}`,type:"ayah",verseKey:vk};
     const prev=data.bookmarks.items;
     repl<BookmarkItem>("bookmarks",i=>[tmp,...i]);
     try{
       const r=await mutReq<BookmarkItem>("/api/bookmarks","POST",{chapterNumber:chapter,verseNumber:verse});
-      repl<BookmarkItem>("bookmarks",i=>i.map(x=>x.id===tmp.id?r.item??x:x));
+      // Replace the temp item with the real one from the server.
+      // If r.item has a real id use it; otherwise keep the temp item so the
+      // key stays in bookmarkedKeys and the UI stays consistent.
+      const confirmed=r.item??tmp;
+      repl<BookmarkItem>("bookmarks",i=>i.map(x=>x.id===tmpId?confirmed:x));
       push(r.message??"Bookmarked.",true);
     }catch(e){
       repl<BookmarkItem>("bookmarks",()=>prev);
@@ -110,9 +122,18 @@ export function useInsight(chapterId:string,route:string) {
   async function unbookmarkVerse(verseKey:string){
     if(!data?.isLoggedIn){push("Sign in first.",false);return}
     const bookmark=data.bookmarks.items.find(b=>b.verseKey===verseKey);
-    if(!bookmark?.id)return;
+    if(!bookmark)return;
     const prev=data.bookmarks.items;
-    repl<BookmarkItem>("bookmarks",i=>i.filter(x=>x.id!==bookmark.id));
+    // Optimistically remove from UI immediately
+    repl<BookmarkItem>("bookmarks",i=>i.filter(x=>x.verseKey!==verseKey));
+    // If the id is a temp placeholder (API call still in flight) or null,
+    // revalidate to get the real id then the user can try again.
+    if(!bookmark.id||bookmark.id.startsWith("t-")){
+      push("Syncing bookmark — please try again in a moment.",false);
+      repl<BookmarkItem>("bookmarks",()=>prev);
+      await mutate();
+      return;
+    }
     try{
       await mutReq(`/api/bookmarks/${bookmark.id}`,"DELETE");
       push("Bookmark removed.",true);

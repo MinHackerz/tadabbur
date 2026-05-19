@@ -45,7 +45,7 @@ export async function PUT(
   if (result.error) {
     return mutationError(sessionContext, {
       message: result.error,
-      status: 400,
+      status: result.upstreamStatus ?? 400,
     });
   }
 
@@ -83,7 +83,7 @@ export async function DELETE(
   if (result.error) {
     return mutationError(sessionContext, {
       message: result.error,
-      status: 400,
+      status: result.upstreamStatus ?? 400,
     });
   }
 

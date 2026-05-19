@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import {
   getReadingEngagement,
   mercyAvailable,
@@ -10,6 +11,13 @@ import {
 import { getSurah } from "@/lib/niyyah";
 import { ArrowRight } from "./icons";
 import { GoldCorners } from "./Ornament";
+import type { TodayReadingStats } from "@/app/api/reading/today/route";
+
+const fetchJson = async <T,>(url: string): Promise<T> => {
+  const r = await fetch(url, { credentials: "include" });
+  if (!r.ok) throw new Error("fetch failed");
+  return r.json() as Promise<T>;
+};
 
 interface Props {
   bookmarkCount: number;
@@ -35,6 +43,14 @@ export default function RhythmStrip({
   useEffect(() => {
     setEng(getReadingEngagement());
   }, []);
+
+  // Fetch today's real reading stats from the server (only when logged in)
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: todayStats } = useSWR<TodayReadingStats>(
+    isLoggedIn ? `/api/reading/today?date=${today}` : null,
+    fetchJson,
+    { revalidateOnFocus: true, refreshInterval: 120_000 },
+  );
 
   const streak = eng?.streakDays ?? 0;
   const lastSurah = eng?.lastSurahId ? getSurah(eng.lastSurahId) : null;
@@ -83,38 +99,47 @@ export default function RhythmStrip({
         </button>
       </RhythmCard>
 
-      {/* Streak */}
-      <RhythmCard>
+      {/* Today's reading stats */}
+      <RhythmCard accent="gold">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-ny-gold m-0">
-          Reading streak
+          Today&apos;s reading
         </p>
-        <div className="flex items-baseline gap-1 mt-2">
-          <span className="font-[var(--font-niyyah-display)] text-[2.3rem] font-semibold text-ny-ink leading-none">
-            {streak}
-          </span>
-          <span className="text-[14px] font-semibold text-ny-charcoal/65 ml-1">
-            day{streak === 1 ? "" : "s"}
-          </span>
-        </div>
-        <p className="text-[12px] text-ny-sage italic m-0 mt-2">
-          {streak > 0
-            ? "Return today to keep the rhythm alive."
-            : "Read once today to begin a streak."}
-        </p>
-        <div
-          className={[
-            "mt-auto pt-3 border-t border-dashed border-ny-gold/25",
-            "flex items-center gap-1.5 text-[11px] italic",
-            mercyLeft ? "text-ny-gold" : "text-ny-charcoal/50",
-          ].join(" ")}
+        {isLoggedIn && todayStats ? (
+          <dl className="grid grid-cols-3 gap-2 mt-2">
+            <div className="flex flex-col items-center">
+              <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Verses</dt>
+              <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
+                {todayStats.versesRead}
+              </dd>
+            </div>
+            <div className="flex flex-col items-center">
+              <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Minutes</dt>
+              <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
+                {todayStats.minutesRead}
+              </dd>
+            </div>
+            <div className="flex flex-col items-center">
+              <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Pages</dt>
+              <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
+                {todayStats.pagesRead}
+              </dd>
+            </div>
+          </dl>
+        ) : isLoggedIn ? (
+          <p className="text-[13px] text-ny-charcoal/65 italic m-0 mt-2 leading-snug">
+            Open the reader to start tracking today&apos;s session.
+          </p>
+        ) : (
+          <p className="text-[13px] text-ny-charcoal/65 italic m-0 mt-2 leading-snug">
+            Sign in to track verses, minutes, and pages read.
+          </p>
+        )}
+        <Link
+          href="/read/1"
+          className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 bg-ny-forest text-white text-[13px] font-semibold hover:bg-ny-forest-deep transition-colors shadow-[0_8px_18px_rgba(20,48,40,0.28)]"
         >
-          <span className="text-base leading-none">✦</span>
-          <span>
-            {mercyLeft
-              ? "Mercy day available this week"
-              : "Mercy used — gentle return still welcome"}
-          </span>
-        </div>
+          Open reader <ArrowRight />
+        </Link>
       </RhythmCard>
 
       {/* Regular Goals */}

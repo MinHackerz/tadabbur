@@ -22,6 +22,8 @@ interface VerseCardProps {
   onCopy: () => void;
   onPlay: () => void;
   onOpenInsights: (tab?: InsightTab) => void;
+  /** Called with the article element once mounted — used by the reading tracker */
+  onObserve?: (el: HTMLElement | null, verseKey: string) => void;
 }
 
 export default function VerseCard({
@@ -41,6 +43,7 @@ export default function VerseCard({
   onCopy,
   onPlay,
   onOpenInsights,
+  onObserve,
 }: VerseCardProps) {
   const verseKey = verse.verseKey ?? `${chapterId}:${verse.verseNumber}`;
   const showArabic = readingMode !== "translation";
@@ -50,6 +53,7 @@ export default function VerseCard({
   return (
     <article
       id={`verse-${verse.verseNumber}`}
+      ref={(el) => onObserve?.(el, verseKey)}
       className={`verse-card group relative scroll-mt-32 transition-all duration-300 ${
         highlighted
           ? "verse-card--active"

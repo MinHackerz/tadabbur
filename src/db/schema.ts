@@ -53,3 +53,22 @@ export const niyyahJourneyDays = pgTable('niyyah_journey_days', {
   isMercy: boolean('is_mercy').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+/**
+ * reading_sessions — server-side reading tracker.
+ * One row per reading session (user opens reader, reads, closes/navigates away).
+ * Tracks verses seen, minutes spent, and pages covered per surah per day.
+ */
+export const readingSessions = pgTable('reading_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  date: date('date').notNull(),                          // yyyy-mm-dd local date
+  surahId: integer('surah_id').notNull(),
+  versesRead: integer('verses_read').notNull().default(0),
+  minutesRead: integer('minutes_read').notNull().default(0), // whole minutes
+  pagesRead: integer('pages_read').notNull().default(0),
+  firstVerseKey: varchar('first_verse_key', { length: 50 }),
+  lastVerseKey: varchar('last_verse_key', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

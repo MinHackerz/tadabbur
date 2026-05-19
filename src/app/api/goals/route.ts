@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   if (result.error) {
     return mutationError(sessionContext, {
       message: result.error,
-      status: 400,
+      status: result.upstreamStatus ?? 400,
     });
   }
 
