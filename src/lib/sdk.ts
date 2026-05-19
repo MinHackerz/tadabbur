@@ -110,10 +110,11 @@ const createAuthenticatedFetch = (session: StoredSession, config: ReturnType<typ
       "Content-Type": "application/json",
     };
 
-    // Add authorization header if we have an access token
+    // Use x-auth-token and x-client-id as per Quran Foundation docs
     const userSession = session.userSession as Record<string, unknown> | null;
     if (userSession?.accessToken || userSession?.access_token) {
-      headers["Authorization"] = `Bearer ${userSession.accessToken ?? userSession.access_token}`;
+      headers["x-auth-token"] = String(userSession.accessToken ?? userSession.access_token);
+      headers["x-client-id"] = config.clientId;
     }
 
     const response = await fetch(url, {
@@ -352,15 +353,16 @@ const createCustomServerClient = (session: StoredSession, config: ReturnType<typ
             code: params.code,
             code_verifier: params.codeVerifier,
             redirect_uri: params.redirectUri,
-            client_id: config.clientId,
-            client_secret: config.clientSecret,
           });
 
           const tokenUrl = `${oauth2Url}/oauth2/token`;
 
           const response = await fetch(tokenUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Authorization: "Basic " + Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64"),
+            },
             body: body.toString(),
           });
 
@@ -399,15 +401,16 @@ const createCustomServerClient = (session: StoredSession, config: ReturnType<typ
           const body = new URLSearchParams({
             grant_type: "refresh_token",
             refresh_token: String(userSession.refreshToken ?? userSession.refresh_token),
-            client_id: config.clientId,
-            client_secret: config.clientSecret,
           });
 
           const tokenUrl = `${oauth2Url}/oauth2/token`;
 
           const response = await fetch(tokenUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Authorization: "Basic " + Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64"),
+            },
             body: body.toString(),
           });
 
