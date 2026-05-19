@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { readingSessions } from "@/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { prisma } from "@/db";
 import { getUserFromSession } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
@@ -11,41 +9,28 @@ export interface TodayReadingStats {
   minutesRead: number;
   pagesRead: number;
   surahsRead: number;
-  /** ISO date this covers */
   date: string;
 }
 
-/**
- * GET /api/reading/today?date=yyyy-mm-dd
- * Returns aggregated reading stats for the given date (defaults to today UTC).
- */
 export async function GET(req: NextRequest) {
   try {
     const user = await getUserFromSession(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const date =
-      searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
+    const dateStr = searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
+    const dateObj = new Date(dateStr);
 
-    const rows = await db
-      .select()
-      .from(readingSessions)
-      .where(
-        and(
-          eq(readingSessions.userId, user.sub),
-          eq(readingSessions.date, date),
-        ),
-      );
+    const rows = await prisma.readingSession.findMany({
+      where: { userId: user.sub, date: dateObj },
+    });
 
     const stats: TodayReadingStats = {
       versesRead: rows.reduce((s, r) => s + r.versesRead, 0),
       minutesRead: rows.reduce((s, r) => s + r.minutesRead, 0),
       pagesRead: rows.reduce((s, r) => s + r.pagesRead, 0),
       surahsRead: rows.length,
-      date,
+      date: dateStr,
     };
 
     return NextResponse.json(stats);

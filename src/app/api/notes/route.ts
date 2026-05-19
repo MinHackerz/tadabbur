@@ -3,8 +3,7 @@ import { NextRequest } from "next/server";
 import { ensureUserScope, normalizeMutationPayload, parseVerseKey, runUserAction } from "@/lib/data";
 import { getSession } from "@/lib/session";
 import { mutationError, withSessionJson } from "@/lib/route-helpers";
-import { db } from "@/db";
-import { userNotesMeta } from "@/db/schema";
+import { prisma } from "@/db";
 import { jwtDecode } from "jwt-decode";
 
 export const dynamic = "force-dynamic";
@@ -75,24 +74,24 @@ export async function POST(request: NextRequest) {
   }
 
   // Attempt to save advanced metadata to Neon database
-  // We use a try-catch so it fails gracefully if DATABASE_URL is not set yet
   try {
     if (process.env.DATABASE_URL && (result.data as { id: string | number })?.id) {
-      // Decode JWT to get user sub claim
       const idToken = sessionContext.session?.oidcLogoutIdTokenHint;
       if (idToken) {
         const decoded = jwtDecode<{ sub: string }>(idToken);
-        const userId = decoded.sub;
-        
-        await db.insert(userNotesMeta).values({
-          id: (result.data as { id: string | number }).id.toString(),
-          userId,
-          richTextContent: body, // In a real app, this might be a complex JSON from a rich text editor
-        }).onConflictDoNothing(); // Prevent duplicates
+        await prisma.userNotesMeta.upsert({
+          where: { id: (result.data as { id: string | number }).id.toString() },
+          create: {
+            id: (result.data as { id: string | number }).id.toString(),
+            userId: decoded.sub,
+            richTextContent: body,
+          },
+          update: { richTextContent: body },
+        });
       }
     }
-  } catch (err) {
-    // Silently skip Neon DB integration if it fails
+  } catch {
+    // Silently skip if DB is unavailable
   }
 
   return withSessionJson(sessionContext, {

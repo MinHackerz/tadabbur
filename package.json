@@ -4,15 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/client": "^5.22.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@upstash/redis": "^1.38.0",
-    "drizzle-orm": "^0.45.2",
     "jwt-decode": "^4.0.0",
     "next": "^16.2.6",
     "postcss": "^8.5.14",
@@ -28,9 +30,9 @@
     "@types/node": "^20",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.6",
+    "prisma": "^5.22.0",
     "typescript": "^6.0.3"
   }
 }

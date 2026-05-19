@@ -1,9 +1,14 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { PrismaClient } from "@prisma/client";
 
-// We use a fallback so the app builds even if DATABASE_URL is not set yet.
-// However, any actual DB queries will fail until a valid connection string is provided.
-const connectionString = process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/quran_insight';
+// Prevent multiple PrismaClient instances in development (hot-reload safe)
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-const sql = neon(connectionString);
-export const db = drizzle(sql);
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}

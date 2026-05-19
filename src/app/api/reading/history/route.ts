@@ -1,30 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { readingSessions } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { prisma } from "@/db";
 import { getUserFromSession } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
-/**
- * GET /api/reading/history
- * Returns the last 30 days of reading sessions for the current user.
- */
 export async function GET(req: NextRequest) {
   try {
     const user = await getUserFromSession(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const rows = await db
-      .select()
-      .from(readingSessions)
-      .where(eq(readingSessions.userId, user.sub))
-      .orderBy(desc(readingSessions.date), desc(readingSessions.createdAt))
-      .limit(100);
+    const rows = await prisma.readingSession.findMany({
+      where: { userId: user.sub },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: 100,
+    });
 
-    return NextResponse.json(rows);
+    // Convert date objects to ISO strings for the frontend
+    const result = rows.map((r) => ({
+      ...r,
+      date: r.date.toISOString().slice(0, 10),
+    }));
+
+    return NextResponse.json(result);
   } catch (err) {
     if (process.env.NODE_ENV === "development") console.error(err);
     return NextResponse.json({ error: "Failed to fetch history" }, { status: 500 });

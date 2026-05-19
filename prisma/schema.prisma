@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────
+
+enum JourneyType {
+  living
+  departed
+  personal
+
+  @@map("journey_type")
+}
+
+enum GoalType {
+  days
+  khatm
+  juz
+  custom
+
+  @@map("goal_type")
+}
+
+// ── Tables ───────────────────────────────────────────────────────────
+
+model UserNotesMeta {
+  id              String   @id @db.VarChar(255)
+  userId          String   @map("user_id") @db.VarChar(255)
+  richTextContent String?  @map("rich_text_content")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("user_notes_meta")
+}
+
+model UserCollectionsMeta {
+  id            String  @id @db.VarChar(255)
+  userId        String  @map("user_id") @db.VarChar(255)
+  coverImageUrl String? @map("cover_image_url") @db.VarChar(1024)
+
+  @@map("user_collections_meta")
+}
+
+model NiyyahJourney {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String      @map("user_id") @db.VarChar(255)
+  type          JourneyType
+  recipientName String      @map("recipient_name")
+  occasion      String
+  personalDua   String      @map("personal_dua")
+  goalType      GoalType    @map("goal_type")
+  goalValue     Int         @map("goal_value")
+  startDate     DateTime    @map("start_date") @db.Date
+  targetDate    DateTime    @map("target_date") @db.Date
+  currentStreak Int         @default(0) @map("current_streak")
+  longestStreak Int         @default(0) @map("longest_streak")
+  mercyDayUsed  Boolean     @default(false) @map("mercy_day_used")
+  lastMercyWeek String?     @map("last_mercy_week") @db.VarChar(50)
+  isComplete    Boolean     @default(false) @map("is_complete")
+  readerName    String?     @map("reader_name")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  days NiyyahJourneyDay[]
+
+  @@map("niyyah_journeys")
+}
+
+model NiyyahJourneyDay {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journeyId  String        @map("journey_id") @db.Uuid
+  date       DateTime      @db.Date
+  versesRead Int           @map("verses_read")
+  surahRange String        @map("surah_range")
+  startKey   String        @map("start_key") @db.VarChar(50)
+  endKey     String        @map("end_key") @db.VarChar(50)
+  reflection String?
+  isMercy    Boolean       @default(false) @map("is_mercy")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  journey NiyyahJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  @@map("niyyah_journey_days")
+}
+
+model ReadingSession {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @map("user_id") @db.VarChar(255)
+  date          DateTime @db.Date
+  surahId       Int      @map("surah_id")
+  versesRead    Int      @default(0) @map("verses_read")
+  minutesRead   Int      @default(0) @map("minutes_read")
+  pagesRead     Int      @default(0) @map("pages_read")
+  firstVerseKey String?  @map("first_verse_key") @db.VarChar(50)
+  lastVerseKey  String?  @map("last_verse_key") @db.VarChar(50)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("reading_sessions")
+}
