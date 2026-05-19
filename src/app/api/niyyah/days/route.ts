@@ -34,6 +34,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Check if journey should be marked complete
+    const totalDays = await prisma.niyyahJourneyDay.count({
+      where: { journeyId },
+    });
+
+    if (totalDays >= journey.goalValue && !journey.isComplete) {
+      await prisma.niyyahJourney.update({
+        where: { id: journeyId },
+        data: { isComplete: true },
+      });
+    }
+
     return NextResponse.json({ day: { ...day, date: toIso(day.date) } }, { status: 201 });
   } catch (error) {
     if (process.env.NODE_ENV === "development") console.error(error);

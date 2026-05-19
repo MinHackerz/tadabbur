@@ -37,7 +37,8 @@ export function useReaderSession() {
         next.auId === prev.auId &&
         next.readingMode === prev.readingMode &&
         next.fontSize === prev.fontSize &&
-        next.darkMode === prev.darkMode
+        next.darkMode === prev.darkMode &&
+        next.showTransliteration === prev.showTransliteration
       ) {
         return prev;
       }
@@ -63,6 +64,13 @@ export function useReaderSession() {
     toggleDarkMode: () => {
       setSession((prev) => {
         const next = { ...prev, darkMode: !prev.darkMode };
+        if (hydrated) saveReaderSession(next);
+        return next;
+      });
+    },
+    toggleTransliteration: () => {
+      setSession((prev) => {
+        const next = { ...prev, showTransliteration: !prev.showTransliteration };
         if (hydrated) saveReaderSession(next);
         return next;
       });

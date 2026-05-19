@@ -36,6 +36,7 @@ export interface ReaderSession {
   readingMode: ReadingMode;
   fontSize: number;
   darkMode: boolean;
+  showTransliteration: boolean;
 }
 
 const STORAGE_KEY = "tadabbur-reader-session";
@@ -47,6 +48,7 @@ export const SESSION_DEFAULTS: ReaderSession = {
   readingMode: "both",
   fontSize: 3,
   darkMode: false,
+  showTransliteration: false,
 };
 
 function migrateLegacyPrefs(): Partial<ReaderSession> | null {
@@ -82,6 +84,7 @@ export function loadReaderSession(): ReaderSession {
       readingMode: p.readingMode ?? SESSION_DEFAULTS.readingMode,
       fontSize: Math.min(5, Math.max(1, p.fontSize ?? SESSION_DEFAULTS.fontSize)),
       darkMode: p.darkMode ?? SESSION_DEFAULTS.darkMode,
+      showTransliteration: p.showTransliteration ?? SESSION_DEFAULTS.showTransliteration,
     };
   } catch {
     return SESSION_DEFAULTS;

@@ -21,37 +21,51 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireUser(req);
-  if (!auth.user) return auth.response;
+  try {
+    const auth = await requireUser(req);
+    if (!auth.user) return auth.response;
 
-  const payload = (await req.json().catch(() => ({}))) as {
-    verseKey?: string;
-    body?: string;
-  };
+    const payload = (await req.json().catch(() => ({}))) as {
+      verseKey?: string;
+      body?: string;
+    };
 
-  const body = String(payload.body ?? "").trim();
-  const parsed = parseVerseKey(payload.verseKey);
+    const body = String(payload.body ?? "").trim();
+    const parsed = parseVerseKey(payload.verseKey);
 
-  if (!body) {
+    if (!body) {
+      return NextResponse.json(
+        { ok: false, message: "Enter a note body before saving." },
+        { status: 400 },
+      );
+    }
+    if (!parsed) {
+      return NextResponse.json(
+        { ok: false, message: "Use a verse key like 1:1." },
+        { status: 400 },
+      );
+    }
+
+    const row = await prisma.note.create({
+      data: {
+        userId: auth.user.sub,
+        verseKey: parsed.verseKey,
+        surahId: parsed.surahId,
+        verseNumber: parsed.verseNumber,
+        body,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: "Note saved.",
+      item: toNoteItem(row),
+    });
+  } catch (error) {
+    console.error("[POST /api/notes] Error:", error);
     return NextResponse.json(
-      { ok: false, message: "Enter a note body before saving." },
-      { status: 400 },
+      { ok: false, message: "Failed to save note. Please try again." },
+      { status: 500 },
     );
   }
-  if (!parsed) {
-    return NextResponse.json(
-      { ok: false, message: "Use a verse key like 1:1." },
-      { status: 400 },
-    );
-  }
-
-  const row = await prisma.note.create({
-    data: {
-      userId: auth.user.sub,
-      verseKey: parsed.verseKey,
-      body,
-    },
-  });
-
-  return NextResponse.json({ ok: true, message: "Note saved.", item: toNoteItem(row) });
 }

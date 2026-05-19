@@ -33,7 +33,7 @@ export function useInsight(chapterId:string,route:string) {
   const defSearch=useDeferredValue(searchIn);
 
   const session = useReaderSession();
-  const { trId, auId, surahId, setTrId, setAuId, setSurahId, setReadingMode, setFontSize, toggleDarkMode, readingMode, fontSize, darkMode, hydrated: sessionHydrated, patch: patchSession } = session;
+  const { trId, auId, surahId, setTrId, setAuId, setSurahId, setReadingMode, setFontSize, toggleDarkMode, toggleTransliteration, readingMode, fontSize, darkMode, showTransliteration, hydrated: sessionHydrated, patch: patchSession } = session;
 
   useEffect(()=>{const t=setTimeout(()=>setDebQ(defSearch.trim()),300);return()=>clearTimeout(t)},[defSearch]);
   useEffect(()=>setReaderCh(chapterId),[chapterId]);
@@ -185,5 +185,5 @@ export function useInsight(chapterId:string,route:string) {
     return s;
   },[data?.bookmarks.items]);
 
-  return {data,bErr,isLoading,toasts,searchIn,setSearchIn,sData,sLoading,rData,rErr,rLoading,readerCh,setReaderCh,noteVK,setNoteVK,noteBody,setNoteBody,bmCh,setBmCh,bmV,setBmV,collName,setCollName,goalTxt,setGoalTxt,prefTxt,setPrefTxt,trId,setTrId,auId,setAuId,surahId,setSurahId,readingMode,setReadingMode,fontSize,setFontSize,darkMode,toggleDarkMode,sessionHydrated,openReader,buildReaderUrl,createNote,deleteNote,updateNote,createBm,deleteBm,createColl,deleteColl,refreshSession,submitGoal,submitGoalPayload,submitPref,clearSearch,jumpReader,navigateSurah,bookmarkVerse,unbookmarkVerse,noteVerse,copyVerse,bookmarkedKeys,mutate,push,errMsg};
+  return {data,bErr,isLoading,toasts,searchIn,setSearchIn,sData,sLoading,rData,rErr,rLoading,readerCh,setReaderCh,noteVK,setNoteVK,noteBody,setNoteBody,bmCh,setBmCh,bmV,setBmV,collName,setCollName,goalTxt,setGoalTxt,prefTxt,setPrefTxt,trId,setTrId,auId,setAuId,surahId,setSurahId,readingMode,setReadingMode,fontSize,setFontSize,darkMode,toggleDarkMode,showTransliteration,toggleTransliteration,sessionHydrated,openReader,buildReaderUrl,createNote,deleteNote,updateNote,createBm,deleteBm,createColl,deleteColl,refreshSession,submitGoal,submitGoalPayload,submitPref,clearSearch,jumpReader,navigateSurah,bookmarkVerse,unbookmarkVerse,noteVerse,copyVerse,bookmarkedKeys,mutate,push,errMsg};
 }

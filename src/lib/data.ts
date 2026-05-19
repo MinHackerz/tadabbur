@@ -834,6 +834,13 @@ export const loadReaderData = async (
 
   // Ask the API for translations inline with the verses so the reader has
   // both the Arabic text and the translation in a single round-trip per page.
+  // Also fetch transliteration (ID: 57) alongside the selected translation.
+  const TRANSLITERATION_ID = 57;
+  const translationIds = [translationResourceId];
+  if (translationResourceId !== TRANSLITERATION_ID) {
+    translationIds.push(TRANSLITERATION_ID);
+  }
+
   const versePageResponses = await Promise.all(
     Array.from({ length: totalVersePages }, (_value, index) =>
       serverClient.content.v4.verses.byChapter(chapterId, {
@@ -843,7 +850,7 @@ export const loadReaderData = async (
         },
         page: index + 1,
         perPage: READER_PAGE_SIZE,
-        translations: [translationResourceId],
+        translations: translationIds,
         words: false,
       }),
     ),
@@ -870,12 +877,14 @@ export const loadReaderData = async (
         asNullableString(verse.verseKey ?? verse.verse_key) ??
         (verseNumber !== null ? `${chapterId}:${verseNumber}` : null);
       const inlineTranslation = getTranslationText(verse.translations, translationResourceId);
+      const inlineTransliteration = getTranslationText(verse.translations, 57);
 
       return {
         arabicText: asString(verse.textUthmani ?? verse.text_uthmani),
         audioUrl: finalAudioUrl,
         id: asString(verse.id ?? verseKey ?? `${chapterId}-${asString(verse.verseNumber ?? verse.verse_number, "verse")}`),
         translationText: inlineTranslation,
+        transliterationText: inlineTransliteration,
         verseKey,
         verseNumber,
       };

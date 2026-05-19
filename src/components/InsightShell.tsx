@@ -123,6 +123,8 @@ export default function InsightShell({route,chapterId="1"}:{route:string;chapter
           setFontSize={h.setFontSize}
           darkMode={h.darkMode}
           toggleDarkMode={h.toggleDarkMode}
+          showTransliteration={h.showTransliteration}
+          toggleTransliteration={h.toggleTransliteration}
         />
       )}
 

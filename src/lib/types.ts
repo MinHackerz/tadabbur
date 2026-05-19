@@ -62,6 +62,7 @@ export interface ReaderVerse {
   audioUrl?: string | null;
   id: string;
   translationText: string | null;
+  transliterationText?: string | null;
   verseKey: string | null;
   verseNumber: number | null;
 }

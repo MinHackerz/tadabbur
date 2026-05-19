@@ -45,9 +45,11 @@ interface ReaderViewProps {
   readingMode: ReadingMode;
   fontSize: number;
   darkMode: boolean;
+  showTransliteration: boolean;
   setReadingMode: (m: ReadingMode) => void;
   setFontSize: (n: number) => void;
   toggleDarkMode: () => void;
+  toggleTransliteration: () => void;
 }
 
 export default function ReaderView({
@@ -76,15 +78,18 @@ export default function ReaderView({
   readingMode,
   fontSize,
   darkMode,
+  showTransliteration,
   setReadingMode,
   setFontSize,
   toggleDarkMode,
+  toggleTransliteration,
 }: ReaderViewProps) {
   const [activeVerse, setActiveVerse] = useState<number | null>(null);
   const [surahPickerOpen, setSurahPickerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [noteModal, setNoteModal] = useState<{ verseKey: string; existingNote?: { id: string; body: string } } | null>(null);
   const [noteText, setNoteText] = useState("");
+  const [copiedVerseKey, setCopiedVerseKey] = useState<string | null>(null);
   const [insightVerse, setInsightVerse] = useState<{
     verseKey: string;
     label: string;
@@ -92,6 +97,18 @@ export default function ReaderView({
     initialTab?: InsightTab;
     instant?: boolean;
   } | null>(null);
+
+  // Lock body scroll when note modal is open
+  useEffect(() => {
+    if (noteModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [noteModal]);
 
   const openInsights = (
     payload: NonNullable<typeof insightVerse>,
@@ -187,6 +204,13 @@ export default function ReaderView({
     }
   };
 
+  // Helper to handle copy with visual feedback
+  const handleCopyVerse = (verseKey: string, text: string) => {
+    onCopyVerse(text);
+    setCopiedVerseKey(verseKey);
+    setTimeout(() => setCopiedVerseKey(null), 2000);
+  };
+
   const handlePlaySurah = () => {
     if (!playable.length) return;
     if (readerAudio.source === "surah") {
@@ -214,6 +238,8 @@ export default function ReaderView({
         onFontSizeChange={setFontSize}
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
+        showTransliteration={showTransliteration}
+        onToggleTransliteration={toggleTransliteration}
         settingsOpen={settingsOpen}
         onToggleSettings={() => setSettingsOpen(!settingsOpen)}
         verseProgressPct={verseProgressPct}
@@ -325,6 +351,7 @@ export default function ReaderView({
                   chapterId={cid}
                   translationId={trId}
                   readingMode={readingMode}
+                  showTransliteration={showTransliteration}
                   fontClasses={fontClasses}
                   isBookmarked={bookmarkedKeys.has(vk)}
                   hasNote={!!verseNote}
@@ -339,10 +366,11 @@ export default function ReaderView({
                     readerAudio.activeVerse === v.verseNumber
                   }
                   isCompleted={tracker.completedKeys.has(vk)}
+                  isCopied={copiedVerseKey === vk}
                   isLoggedIn={isLoggedIn}
                   onBookmark={() => handleToggleBookmark(vk, cid, v.verseNumber ?? 1)}
                   onNote={() => handleOpenNoteModal(vk)}
-                  onCopy={() => onCopyVerse(copyText)}
+                  onCopy={() => handleCopyVerse(vk, copyText)}
                   onPlay={() =>
                     v.audioUrl && readerAudio.toggleVerse(v.audioUrl, v.verseNumber ?? 0)
                   }
@@ -430,9 +458,12 @@ export default function ReaderView({
       )}
 
       {noteModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/10 backdrop-blur-[2px]" onClick={() => setNoteModal(null)}>
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/30" 
+          onClick={() => setNoteModal(null)}
+        >
           <div 
-            className="w-full max-w-md border border-border rounded-2xl p-6 shadow-xl" 
+            className="w-full max-w-md border border-border rounded-2xl p-6 shadow-2xl animate-[scale-in_0.2s_ease-out]" 
             style={{ backgroundColor: 'var(--color-bg)' }}
             onClick={(e) => e.stopPropagation()}
           >

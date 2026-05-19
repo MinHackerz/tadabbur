@@ -21,43 +21,51 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireUser(req);
-  if (!auth.user) return auth.response;
+  try {
+    const auth = await requireUser(req);
+    if (!auth.user) return auth.response;
 
-  const payload = (await req.json().catch(() => ({}))) as {
-    verseKey?: string;
-    chapterNumber?: number | string;
-    verseNumber?: number | string;
-  };
+    const payload = (await req.json().catch(() => ({}))) as {
+      verseKey?: string;
+      chapterNumber?: number | string;
+      verseNumber?: number | string;
+    };
 
-  // Accept either { verseKey: "2:255" } or legacy { chapterNumber, verseNumber }.
-  const fromKey = payload.verseKey ? parseVerseKey(payload.verseKey) : null;
-  const fromParts = !fromKey && payload.chapterNumber && payload.verseNumber
-    ? parseVerseKey(`${payload.chapterNumber}:${payload.verseNumber}`)
-    : null;
-  const parsed = fromKey ?? fromParts;
+    // Accept either { verseKey: "2:255" } or legacy { chapterNumber, verseNumber }.
+    const fromKey = payload.verseKey ? parseVerseKey(payload.verseKey) : null;
+    const fromParts = !fromKey && payload.chapterNumber && payload.verseNumber
+      ? parseVerseKey(`${payload.chapterNumber}:${payload.verseNumber}`)
+      : null;
+    const parsed = fromKey ?? fromParts;
 
-  if (!parsed) {
+    if (!parsed) {
+      return NextResponse.json(
+        { ok: false, message: "Use a verse like 2:255 (chapter:verse)." },
+        { status: 400 },
+      );
+    }
+
+    const row = await prisma.bookmark.upsert({
+      where: { userId_verseKey: { userId: auth.user.sub, verseKey: parsed.verseKey } },
+      create: {
+        userId: auth.user.sub,
+        verseKey: parsed.verseKey,
+        surahId: parsed.surahId,
+        verseNumber: parsed.verseNumber,
+      },
+      update: {},
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: "Bookmark saved.",
+      item: toBookmarkItem(row),
+    });
+  } catch (error) {
+    console.error("[POST /api/bookmarks] Error:", error);
     return NextResponse.json(
-      { ok: false, message: "Use a verse like 2:255 (chapter:verse)." },
-      { status: 400 },
+      { ok: false, message: "Failed to save bookmark. Please try again." },
+      { status: 500 },
     );
   }
-
-  const row = await prisma.bookmark.upsert({
-    where: { userId_verseKey: { userId: auth.user.sub, verseKey: parsed.verseKey } },
-    create: {
-      userId: auth.user.sub,
-      verseKey: parsed.verseKey,
-      surahId: parsed.surahId,
-      verseNumber: parsed.verseNumber,
-    },
-    update: {},
-  });
-
-  return NextResponse.json({
-    ok: true,
-    message: "Bookmark saved.",
-    item: toBookmarkItem(row),
-  });
 }

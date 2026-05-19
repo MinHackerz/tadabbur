@@ -126,11 +126,29 @@ body {
   padding-right: var(--reader-gutter);
 }
 
+/* On mobile, reduce gutter to give more space to verse cards */
+@media (max-width: 767px) {
+  .reader-stage {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
 .reader-toolbar {
   margin-left: calc(-1 * var(--reader-gutter));
   margin-right: calc(-1 * var(--reader-gutter));
   padding-left: var(--reader-gutter);
   padding-right: var(--reader-gutter);
+}
+
+/* On mobile, match the reduced gutter */
+@media (max-width: 767px) {
+  .reader-toolbar {
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
 }
 
 .reader-hero {
@@ -432,12 +450,13 @@ body {
 
 .verse-card {
   position: relative;
-  padding: 1.75rem 1.75rem 1.5rem;
+  padding: 1.75rem 1.5rem 1.75rem;
   border-radius: 1.25rem;
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   background: var(--color-surface);
   transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, transform 0.2s ease;
   overflow: hidden;
+  min-height: fit-content;
 }
 
 @media (min-width: 768px) {
@@ -490,6 +509,7 @@ body {
 .verse-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   padding: 0.5rem 0.9rem;
   border-radius: 0.75rem;
@@ -500,6 +520,38 @@ body {
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
   transition: all 0.2s ease;
   cursor: pointer;
+}
+
+/* Mobile: icon-only buttons to fit all in single line */
+@media (max-width: 767px) {
+  .verse-chip {
+    padding: 0.5rem;
+    min-width: 2rem;
+    min-height: 2rem;
+  }
+  
+  .verse-chip__label {
+    display: none;
+  }
+  
+  .verse-chip__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Desktop: show labels */
+@media (min-width: 768px) {
+  .verse-chip__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .verse-chip__label {
+    display: inline;
+  }
 }
 
 .verse-chip:hover {
@@ -525,6 +577,17 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

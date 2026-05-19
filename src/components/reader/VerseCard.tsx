@@ -10,6 +10,7 @@ interface VerseCardProps {
   chapterId: number;
   translationId: string;
   readingMode: ReadingMode;
+  showTransliteration: boolean;
   fontClasses: { arabic: string; translation: string };
   isBookmarked: boolean;
   hasNote: boolean;
@@ -17,6 +18,7 @@ interface VerseCardProps {
   isAudioPlaying?: boolean;
   isSurahHighlight?: boolean;
   isCompleted?: boolean;
+  isCopied?: boolean;
   isLoggedIn: boolean;
   onBookmark: () => void;
   onNote: () => void;
@@ -34,6 +36,7 @@ export default function VerseCard({
   chapterId,
   translationId,
   readingMode,
+  showTransliteration,
   fontClasses,
   isBookmarked,
   hasNote,
@@ -41,6 +44,7 @@ export default function VerseCard({
   isAudioPlaying = false,
   isSurahHighlight = false,
   isCompleted = false,
+  isCopied = false,
   isLoggedIn,
   onBookmark,
   onNote,
@@ -91,7 +95,16 @@ export default function VerseCard({
             </p>
           )}
 
-          {showArabic && showTranslation && (
+          {showTransliteration && verse.transliterationText && (
+            <p
+              className={`text-ink-secondary ${fontClasses.translation} italic leading-relaxed ${showArabic ? "mt-4" : ""}`}
+              dir="ltr"
+            >
+              {verse.transliterationText}
+            </p>
+          )}
+
+          {(showArabic || showTransliteration) && showTranslation && (
             <div className="my-6 flex items-center gap-3" aria-hidden>
               <span className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
               <span className="text-warm/60 text-[10px]">✦</span>
@@ -109,6 +122,7 @@ export default function VerseCard({
             />
           )}
 
+          {/* Action buttons horizontally at bottom - single line for all devices */}
           <div className="verse-card__actions flex flex-wrap items-center gap-1.5 mt-6 pt-4 border-t border-border/70">
             <ActionChip
               onClick={onPlay}
@@ -156,11 +170,18 @@ export default function VerseCard({
             />
             <ActionChip
               onClick={onCopy}
-              label="Copy"
+              active={isCopied}
+              label={isCopied ? "Copied" : "Copy"}
               icon={
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={14} height={14}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-                </svg>
+                isCopied ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} width={14} height={14}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={14} height={14}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+                  </svg>
+                )
               }
             />
             {isLoggedIn && (
@@ -238,9 +259,11 @@ function ActionChip({
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={`verse-chip ${active ? "verse-chip--active" : ""} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+      aria-label={label}
+      title={label}
     >
-      {icon}
-      {label}
+      <span className="verse-chip__icon">{icon}</span>
+      <span className="verse-chip__label">{label}</span>
     </button>
   );
 }
