@@ -1,0 +1,2082 @@
+@import "tailwindcss";
+@import "./niyyah.css";
+
+@theme {
+  /* Warm parchment palette — anchored to the Niyyah aesthetic so every
+     page inherits the same Islamic-manuscript feel, not just the home. */
+  --color-bg: #faf6ec;
+  --color-surface: #fffdf6;
+  --color-surface-secondary: #f5efe0;
+  --color-surface-hover: #efe8d4;
+
+  --color-ink: #1f1c17;
+  --color-ink-secondary: #5a534a;
+  --color-ink-tertiary: #8c8579;
+  --color-ink-quaternary: #c5bfb1;
+
+  --color-accent: #3d6b55;
+  --color-accent-hover: #2d5544;
+  --color-accent-subtle: #e8f4ef;
+
+  --color-warm: #b8924a;
+  --color-warm-subtle: #f2e9d2;
+
+  --color-border: #e6dabd;
+  --color-border-hover: #d4c69e;
+
+  --color-danger: #b35454;
+  --color-danger-subtle: #f6e3e3;
+
+  --font-arabic: var(--font-noto-arabic), serif;
+  --font-decorative: var(--font-amiri), var(--font-noto-arabic), serif;
+  --font-mono: var(--font-space-mono), 'Fira Code', monospace;
+}
+
+/* Dark mode overrides — deep forest manuscript with warm gold accents. */
+[data-theme="dark"] {
+  --color-bg: #0e1614;
+  --color-surface: #161e1b;
+  --color-surface-secondary: #1d2622;
+  --color-surface-hover: #232c28;
+
+  --color-ink: #ede6d5;
+  --color-ink-secondary: #b8b1a1;
+  --color-ink-tertiary: #7c7567;
+  --color-ink-quaternary: #4d4a40;
+
+  --color-accent: #d8b15c;
+  --color-accent-hover: #e8d5a3;
+  --color-accent-subtle: #2a2418;
+
+  --color-warm: #d8b15c;
+  --color-warm-subtle: #1f1a10;
+
+  --color-border: #2e3a2f;
+  --color-border-hover: #3f4d3e;
+
+  --color-danger: #d68080;
+  --color-danger-subtle: #2c1818;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--color-bg);
+}
+
+body {
+  /* Warm parchment wash — applied site-wide so every route shares the
+     same Islamic-manuscript backdrop. Card components stay opaque on top. */
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 12% 0%, rgba(232, 213, 163, 0.42), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 88% 100%, rgba(184, 146, 74, 0.18), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(255, 246, 214, 0.25), transparent 70%);
+  background-attachment: fixed;
+  color: var(--color-ink);
+  font-family: var(--font-plus-jakarta), system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+[data-theme="dark"] body {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 12% 0%, rgba(216, 177, 92, 0.10), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 88% 100%, rgba(20, 48, 42, 0.5), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(184, 146, 74, 0.06), transparent 70%);
+}
+
+@layer base {
+  a { color: inherit; text-decoration: none; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-ink-quaternary); border-radius: 999px; }
+::selection { background: rgba(26,127,110,0.12); }
+
+[data-theme="dark"] ::selection {
+  background: rgba(45,179,158,0.25);
+}
+
+/* Reader-focused layout */
+.reader-layout {
+  --reader-max: 68rem;
+  --reader-gutter: clamp(1.25rem, 4vw, 2.5rem);
+  width: 100%;
+}
+
+.reader-stage {
+  width: 100%;
+  max-width: var(--reader-max);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.reader-toolbar {
+  margin-left: calc(-1 * var(--reader-gutter));
+  margin-right: calc(-1 * var(--reader-gutter));
+  padding-left: var(--reader-gutter);
+  padding-right: var(--reader-gutter);
+}
+
+.reader-hero {
+  animation: fade-in 0.4s ease both;
+  padding-left: var(--reader-gutter);
+  padding-right: var(--reader-gutter);
+  margin-left: calc(-1 * var(--reader-gutter));
+  margin-right: calc(-1 * var(--reader-gutter));
+}
+
+/* Surah header card */
+.reader-surah-hero {
+  animation: fade-in 0.45s ease both;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) {
+  .reader-surah-hero {
+    margin-bottom: 2.5rem;
+  }
+}
+
+.reader-surah-hero__card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.375rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 12px 40px rgba(26, 127, 110, 0.06);
+}
+
+.reader-surah-hero__banner {
+  position: relative;
+  height: 5.5rem;
+  background: linear-gradient(
+    125deg,
+    color-mix(in srgb, var(--color-accent) 88%, #0d3d35) 0%,
+    color-mix(in srgb, var(--color-accent-hover) 75%, #062820) 55%,
+    color-mix(in srgb, var(--color-accent) 55%, #0a2822) 100%
+  );
+}
+
+.reader-surah-hero__banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+[data-theme="dark"] .reader-surah-hero__banner {
+  background: linear-gradient(
+    125deg,
+    #0a2824 0%,
+    color-mix(in srgb, var(--color-accent) 35%, #071412) 50%,
+    #061a17 100%
+  );
+}
+
+.reader-surah-hero__body {
+  position: relative;
+  margin-top: -2.75rem;
+  padding: 0 1.25rem 1.25rem;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .reader-surah-hero__body {
+    padding: 0 1.75rem 1.5rem;
+  }
+}
+
+.reader-surah-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
+}
+
+.reader-surah-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.reader-surah-hero__badge--accent {
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+}
+
+.reader-surah-hero__badge--muted {
+  color: var(--color-ink-tertiary);
+  background: transparent;
+  border-color: var(--color-border);
+}
+
+.reader-surah-hero__titles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.reader-surah-hero__arabic {
+  margin: 0;
+  font-size: clamp(2.25rem, 6vw, 3rem);
+  line-height: 1.2;
+  font-weight: 400;
+  color: var(--color-warm);
+  letter-spacing: 0.02em;
+}
+
+.reader-surah-hero__name {
+  margin: 0.125rem 0 0;
+  font-size: clamp(1.5rem, 4vw, 1.875rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+  line-height: 1.15;
+}
+
+.reader-surah-hero__translated {
+  margin: 0.125rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--color-ink-tertiary);
+  line-height: 1.4;
+}
+
+.reader-surah-hero__nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  max-width: 22rem;
+  margin: 1rem auto 0;
+}
+
+@media (min-width: 640px) {
+  .reader-surah-hero__nav {
+    display: flex;
+    justify-content: center;
+    max-width: none;
+    gap: 0.5rem;
+  }
+}
+
+.reader-surah-hero__nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.reader-surah-hero__nav-btn:hover:not(:disabled) {
+  color: var(--color-ink);
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-secondary);
+}
+
+.reader-surah-hero__nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (min-width: 640px) {
+  .reader-surah-hero__nav-btn {
+    min-width: 6.5rem;
+  }
+}
+
+.reader-surah-hero--compact {
+  margin-bottom: 0.5rem;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__card {
+  border-radius: 0.625rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.reader-surah-hero--compact .reader-surah-hero__banner {
+  height: 0;
+  opacity: 0;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__body {
+  margin-top: 0;
+  padding: 0.4375rem 0.6875rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__meta {
+  margin-bottom: 0;
+  order: 1;
+  justify-content: flex-start;
+  gap: 0.25rem;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__badge {
+  padding: 0.125rem 0.4375rem;
+  font-size: 0.625rem;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__badge--muted {
+  display: none;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__titles {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+  align-items: flex-start;
+  order: 2;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__arabic {
+  font-size: 1.0625rem;
+  line-height: 1.15;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__name {
+  font-size: 0.875rem;
+  margin-top: 0;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__translated {
+  display: none;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__nav {
+  order: 3;
+  margin: 0;
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__nav-btn {
+  min-height: 1.625rem;
+  padding: 0.25rem 0.4375rem;
+  min-width: 0;
+  border-radius: 0.375rem;
+}
+
+.reader-surah-hero--compact .reader-surah-hero__nav-btn span {
+  display: none;
+}
+
+.reader-verses {
+  width: 100%;
+}
+
+.verse-card {
+  position: relative;
+  padding: 1.75rem 1.75rem 1.5rem;
+  border-radius: 1.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, transform 0.25s ease;
+}
+
+@media (min-width: 768px) {
+  .verse-card {
+    padding: 2rem 2.25rem 1.75rem;
+  }
+}
+
+.verse-card::before {
+  content: "";
+  position: absolute;
+  left: 1.25rem;
+  right: 1.25rem;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-warm) 25%, transparent),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.verse-card:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: 0 6px 28px rgba(20, 48, 40, 0.06);
+}
+
+.verse-card:hover::before {
+  opacity: 1;
+}
+
+.verse-card--active {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent-subtle) 55%, var(--color-surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 18%, transparent), 0 8px 32px rgba(20, 48, 40, 0.08);
+}
+
+.verse-card--active::before {
+  opacity: 1;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent) 45%, transparent),
+    transparent
+  );
+}
+
+.verse-card--bookmarked {
+  background: color-mix(in srgb, var(--color-warm-subtle) 55%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warm) 28%, var(--color-border));
+}
+
+.verse-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+  background: color-mix(in srgb, var(--color-surface-secondary) 75%, transparent);
+  border: 1px solid transparent;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.verse-chip:hover {
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  border-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  transform: translateY(-1px);
+}
+
+.verse-chip--active {
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+@keyframes sheet-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheet-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.insight-sheet {
+  animation: sheet-slide-up 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.insight-sheet--fast {
+  animation: sheet-slide-up 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.insight-sheet-backdrop {
+  animation: sheet-backdrop-in 0.2s ease both;
+}
+
+/* Subtle scrim — reader stays visible behind the sheet */
+.insight-sheet-backdrop--light {
+  background: color-mix(in srgb, var(--color-ink) 12%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.insight-sheet-backdrop--dim {
+  background: color-mix(in srgb, var(--color-ink) 28%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+[data-theme="dark"] .insight-sheet-backdrop--light {
+  background: color-mix(in srgb, #000 35%, transparent);
+}
+
+[data-theme="dark"] .insight-sheet-backdrop--dim {
+  background: color-mix(in srgb, #000 55%, transparent);
+}
+
+.reader-dock-enter {
+  animation: fade-in 0.3s ease both;
+}
+
+.reader-end-cta {
+  animation: fade-in 0.4s ease both;
+}
+
+.home-studio {
+  backdrop-filter: blur(8px);
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-secondary);
+}
+
+.theme-toggle__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.theme-toggle__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.theme-toggle__text {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.theme-toggle__track {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: var(--color-border);
+  transition: background 0.2s ease;
+}
+
+.theme-toggle__track--on {
+  background: var(--color-accent);
+}
+
+.theme-toggle__thumb {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease;
+}
+
+.theme-toggle__track--on .theme-toggle__thumb {
+  transform: translateX(1.25rem);
+}
+
+/* Home — minimal intro & dashboard */
+.home-intro {
+  text-align: center;
+  padding: 0.5rem 0 0;
+}
+
+.home-intro__bismillah {
+  font-size: 1.35rem;
+  color: var(--color-warm);
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.home-intro__title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+  margin-bottom: 0.5rem;
+}
+
+.home-intro__tagline {
+  font-size: 0.9375rem;
+  color: var(--color-ink-secondary);
+  max-width: 28rem;
+  margin: 0 auto;
+  line-height: 1.55;
+}
+
+.home-dashboard__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.home-dashboard__greeting {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-accent);
+  margin-bottom: 0.25rem;
+}
+
+.home-dashboard__headline {
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+.home-dashboard__level {
+  text-align: right;
+  padding: 0.5rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+}
+
+.home-dashboard__level-label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-ink-tertiary);
+}
+
+.home-dashboard__level-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-warm);
+}
+
+.home-continue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+  border-radius: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent-subtle) 60%, var(--color-surface)),
+    var(--color-surface)
+  );
+}
+
+.home-continue__eyebrow {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-ink-tertiary);
+  margin-bottom: 0.35rem;
+}
+
+.home-continue__arabic {
+  font-size: 1.5rem;
+  color: var(--color-warm);
+  line-height: 1.3;
+}
+
+.home-continue__name {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.home-continue__verse {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.home-continue__empty {
+  font-size: 0.875rem;
+  color: var(--color-ink-tertiary);
+}
+
+.home-continue__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: var(--color-accent);
+  color: #fff;
+  transition: background 0.15s ease;
+}
+
+.home-continue__btn:hover {
+  background: var(--color-accent-hover);
+}
+
+.home-dashboard__grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .home-dashboard__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.home-stat-card {
+  padding: 1.15rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.home-stat-card__label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-ink-tertiary);
+  margin-bottom: 0.5rem;
+}
+
+.home-stat-card__value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-ink);
+  line-height: 1;
+  margin-bottom: 0.35rem;
+}
+
+.home-stat-card__unit {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+  margin-left: 0.25rem;
+}
+
+.home-stat-card__hint,
+.home-stat-card__mercy {
+  font-size: 0.75rem;
+  color: var(--color-ink-tertiary);
+  line-height: 1.45;
+}
+
+.home-stat-card__mercy {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-warm);
+}
+
+.home-stat-card__bar {
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--color-surface-secondary);
+  overflow: hidden;
+}
+
+.home-stat-card__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent);
+  transition: width 0.4s ease;
+}
+
+.home-stat-card__arabic {
+  font-size: 1.125rem;
+  text-align: right;
+  color: var(--color-ink);
+  line-height: 1.65;
+  margin-bottom: 0.5rem;
+}
+
+.home-stat-card__translation {
+  font-size: 0.8125rem;
+  color: var(--color-ink-secondary);
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.home-stat-card__link {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.home-stat-card__plan {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 0.65rem;
+}
+
+.home-stat-card__links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.home-dash-link {
+  display: block;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--color-border);
+  transition: border-color 0.15s ease;
+}
+
+.home-dash-link:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.home-dash-link__label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.home-dash-link__sub {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--color-ink-tertiary);
+  margin-top: 0.15rem;
+}
+
+.home-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .home-quick-actions {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.home-habit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0.85rem 1rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-habit:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  box-shadow: 0 4px 16px rgba(26, 127, 110, 0.08);
+}
+
+.home-habit__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  margin-bottom: 0.5rem;
+}
+
+.home-habit__title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.home-habit__desc {
+  font-size: 0.75rem;
+  color: var(--color-ink-tertiary);
+}
+
+.sacred-moment {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.sacred-moment--friday {
+  border-color: color-mix(in srgb, var(--color-warm) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warm-subtle) 40%, var(--color-surface));
+}
+
+.sacred-moment--ramadan,
+.sacred-moment--laylatul-qadr {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent-subtle) 50%, var(--color-surface));
+}
+
+.sacred-moment__eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-accent);
+}
+
+.sacred-moment__title {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--color-ink);
+  margin: 0.2rem 0;
+}
+
+.sacred-moment__detail {
+  font-size: 0.8125rem;
+  color: var(--color-ink-secondary);
+  line-height: 1.5;
+}
+
+.sacred-moment__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  padding: 0.55rem 1rem;
+  border-radius: 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.home-studio-details__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
+  list-style: none;
+}
+
+.home-studio-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.home-studio-details__eyebrow {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-accent);
+}
+
+.home-studio-details__title {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.home-studio-details__chevron {
+  font-size: 0.875rem;
+  color: var(--color-ink-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.home-studio-details[open] .home-studio-details__chevron {
+  transform: rotate(180deg);
+}
+
+/* Spiritual pulse — heart check-in */
+@keyframes spiritual-heartbeat {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes spiritual-ring-pulse {
+  0% { transform: scale(0.92); opacity: 0.5; }
+  70% { transform: scale(1.15); opacity: 0; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+.spiritual-pulse__card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--color-warm) 18%, var(--color-border));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-warm-subtle) 70%, var(--color-surface)) 0%,
+    var(--color-surface) 45%,
+    color-mix(in srgb, var(--color-accent-subtle) 40%, var(--color-surface)) 100%
+  );
+  padding: 1.5rem 1.25rem 1.25rem;
+  box-shadow: 0 12px 48px rgba(139, 105, 20, 0.08);
+}
+
+@media (min-width: 768px) {
+  .spiritual-pulse__card {
+    padding: 1.75rem 1.75rem 1.5rem;
+  }
+}
+
+.spiritual-pulse__glow {
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 55%;
+  height: 80%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-warm) 12%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.spiritual-pulse__header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.spiritual-pulse__heart-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spiritual-pulse__heart-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--color-warm) 35%, transparent);
+  animation: spiritual-ring-pulse 2.4s ease-out infinite;
+}
+
+.spiritual-pulse__heart {
+  font-size: 1.35rem;
+  color: var(--color-warm);
+  animation: spiritual-heartbeat 2.4s ease-in-out infinite;
+  line-height: 1;
+}
+
+.spiritual-pulse__eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-warm);
+}
+
+.spiritual-pulse__title {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  line-height: 1.2;
+}
+
+.spiritual-pulse__subtitle {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-ink-secondary);
+  max-width: 36rem;
+}
+
+.spiritual-pulse__streak {
+  margin: 0.625rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.spiritual-pulse__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.spiritual-pulse__chip {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  color: var(--color-ink-secondary);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.spiritual-pulse__chip:hover {
+  border-color: var(--color-border-hover);
+  color: var(--color-ink);
+}
+
+.spiritual-pulse__chip--active {
+  transform: scale(1.03);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.spiritual-pulse__chip--anxious.spiritual-pulse__chip--active {
+  color: #0369a1;
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+}
+
+.spiritual-pulse__chip--grateful.spiritual-pulse__chip--active {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.spiritual-pulse__chip--lost.spiritual-pulse__chip--active {
+  color: #5b21b6;
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
+.spiritual-pulse__chip--sorrowful.spiritual-pulse__chip--active {
+  color: #9f1239;
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
+.spiritual-pulse__chip--seeking-peace.spiritual-pulse__chip--active {
+  color: #047857;
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+[data-theme="dark"] .spiritual-pulse__chip--anxious.spiritual-pulse__chip--active {
+  color: #7dd3fc;
+  background: #0c4a6e;
+  border-color: #38bdf8;
+}
+
+[data-theme="dark"] .spiritual-pulse__chip--grateful.spiritual-pulse__chip--active {
+  color: #fcd34d;
+  background: #422006;
+  border-color: #b45309;
+}
+
+[data-theme="dark"] .spiritual-pulse__chip--lost.spiritual-pulse__chip--active {
+  color: #c4b5fd;
+  background: #2e1065;
+  border-color: #8b5cf6;
+}
+
+[data-theme="dark"] .spiritual-pulse__chip--sorrowful.spiritual-pulse__chip--active {
+  color: #fda4af;
+  background: #4c0519;
+  border-color: #fb7185;
+}
+
+[data-theme="dark"] .spiritual-pulse__chip--seeking-peace.spiritual-pulse__chip--active {
+  color: #6ee7b7;
+  background: #064e3b;
+  border-color: #34d399;
+}
+
+.spiritual-pulse__reveal {
+  border-radius: 1.125rem;
+  border: 1px solid var(--color-border);
+  padding: 1.25rem 1rem 1rem;
+  text-align: center;
+  animation: fade-in 0.35s ease both;
+}
+
+.spiritual-pulse__reveal--anxious {
+  background: linear-gradient(135deg, #f0f9ff 0%, var(--color-surface) 100%);
+  border-color: #bae6fd;
+}
+
+.spiritual-pulse__reveal--grateful {
+  background: linear-gradient(135deg, #fffbeb 0%, var(--color-surface) 100%);
+  border-color: #fde68a;
+}
+
+.spiritual-pulse__reveal--lost {
+  background: linear-gradient(135deg, #f5f3ff 0%, var(--color-surface) 100%);
+  border-color: #ddd6fe;
+}
+
+.spiritual-pulse__reveal--sorrowful {
+  background: linear-gradient(135deg, #fff1f2 0%, var(--color-surface) 100%);
+  border-color: #fecdd3;
+}
+
+.spiritual-pulse__reveal--seeking-peace {
+  background: linear-gradient(135deg, #ecfdf5 0%, var(--color-surface) 100%);
+  border-color: #a7f3d0;
+}
+
+[data-theme="dark"] .spiritual-pulse__reveal--anxious {
+  background: linear-gradient(135deg, #0c4a6e33 0%, var(--color-surface) 100%);
+}
+
+[data-theme="dark"] .spiritual-pulse__reveal--grateful {
+  background: linear-gradient(135deg, #42200644 0%, var(--color-surface) 100%);
+}
+
+[data-theme="dark"] .spiritual-pulse__reveal--lost {
+  background: linear-gradient(135deg, #2e106544 0%, var(--color-surface) 100%);
+}
+
+[data-theme="dark"] .spiritual-pulse__reveal--sorrowful {
+  background: linear-gradient(135deg, #4c051944 0%, var(--color-surface) 100%);
+}
+
+[data-theme="dark"] .spiritual-pulse__reveal--seeking-peace {
+  background: linear-gradient(135deg, #064e3b44 0%, var(--color-surface) 100%);
+}
+
+.spiritual-pulse__prompt {
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--color-ink-secondary);
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.spiritual-pulse__arabic {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.5rem, 4vw, 1.875rem);
+  line-height: 1.65;
+  color: var(--color-ink);
+}
+
+.spiritual-pulse__translation {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--color-ink-secondary);
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.spiritual-pulse__ref {
+  margin: 0 0 1rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-tertiary);
+}
+
+.spiritual-pulse__dhikr {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-warm-subtle) 80%, var(--color-surface));
+  border: 1px dashed color-mix(in srgb, var(--color-warm) 25%, var(--color-border));
+}
+
+.spiritual-pulse__dhikr-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-warm);
+}
+
+.spiritual-pulse__dhikr-text {
+  font-size: 1.125rem;
+  color: var(--color-ink);
+  line-height: 1.4;
+}
+
+.spiritual-pulse__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 20rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 480px) {
+  .spiritual-pulse__actions {
+    flex-direction: row;
+    justify-content: center;
+    max-width: none;
+  }
+}
+
+.spiritual-pulse__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.625rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.spiritual-pulse__btn--primary {
+  color: #ffffff;
+  background: var(--color-accent);
+  border: none;
+  cursor: pointer;
+}
+
+.spiritual-pulse__btn--primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.spiritual-pulse__btn--secondary {
+  color: var(--color-ink);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.spiritual-pulse__btn--secondary:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.spiritual-pulse__empty {
+  padding: 1.25rem 1rem;
+  border-radius: 1rem;
+  border: 1px dashed var(--color-border);
+  background: var(--color-surface-secondary);
+  text-align: center;
+}
+
+.spiritual-pulse__empty p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-ink-tertiary);
+}
+
+.reader-toolbar-bar {
+  width: 100%;
+  max-width: var(--reader-max);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.reader-toolbar-bar__inner {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 28px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+.reader-toolbar-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem 0.75rem;
+  padding: 0.75rem 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .reader-toolbar-bar__row {
+    flex-wrap: nowrap;
+    gap: 0.75rem 1rem;
+    padding: 0.875rem 1rem;
+  }
+}
+
+.reader-toolbar-surah {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.75rem 0.375rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+  color: var(--color-ink);
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+  flex: 0 1 auto;
+  max-width: min(100%, 12.5rem);
+}
+
+.reader-toolbar-surah:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.reader-toolbar-surah--open {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.reader-toolbar-surah__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.reader-toolbar-surah__text {
+  min-width: 0;
+  flex: 1;
+}
+
+.reader-toolbar-surah__label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-tertiary);
+  line-height: 1.2;
+}
+
+.reader-toolbar-surah--open .reader-toolbar-surah__label {
+  color: color-mix(in srgb, var(--color-accent) 70%, var(--color-ink-tertiary));
+}
+
+.reader-toolbar-surah__name {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reader-toolbar-surah__chevron {
+  flex-shrink: 0;
+  color: var(--color-ink-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.reader-toolbar-surah__chevron--open {
+  transform: rotate(180deg);
+}
+
+.reader-toolbar-modes {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: stretch;
+  padding: 0.1875rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+  gap: 0.125rem;
+}
+
+@media (min-width: 640px) {
+  .reader-toolbar-modes {
+    flex: 1 1 0;
+    max-width: 22rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+.reader-toolbar-mode {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 2.375rem;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 0.5625rem;
+  background: transparent;
+  color: var(--color-ink-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.reader-toolbar-mode:hover:not(.reader-toolbar-mode--active) {
+  color: var(--color-ink);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+}
+
+.reader-toolbar-mode--active {
+  background: var(--color-accent);
+  color: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 2px 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.reader-toolbar-mode__label--short {
+  display: inline;
+}
+
+.reader-toolbar-mode__label--long {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .reader-toolbar-mode {
+    font-size: 0.8125rem;
+    padding: 0 0.75rem;
+  }
+
+  .reader-toolbar-mode__label--short {
+    display: none;
+  }
+
+  .reader-toolbar-mode__label--long {
+    display: inline;
+  }
+}
+
+.reader-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+@media (max-width: 639px) {
+  .reader-toolbar-modes {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .reader-toolbar-actions {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .reader-toolbar-surah {
+    order: 1;
+    max-width: calc(100% - 11rem);
+  }
+  
+  .reader-toolbar-bar__row {
+    width: 100%;
+  }
+}
+
+.reader-toolbar-bar__progress {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem 0.75rem;
+}
+
+.reader-toolbar-bar__progress::before {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-surface-secondary);
+}
+
+.reader-toolbar-bar__progress-fill {
+  position: relative;
+  z-index: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--color-accent),
+    var(--color-accent-hover, var(--color-accent))
+  );
+  transition: width 0.45s ease;
+  min-width: 0;
+}
+
+.reader-toolbar-bar__progress-label {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-ink-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reader-toolbar-bar__row--compact {
+  padding: 0.3125rem 0.5rem;
+  gap: 0.375rem;
+}
+
+.reader-toolbar-bar--compact .reader-toolbar-bar__inner {
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.reader-toolbar-surah--compact {
+  min-height: 1.875rem;
+  padding: 0.125rem 0.4375rem 0.125rem 0.25rem;
+  max-width: min(100%, 8.5rem);
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+}
+
+.reader-toolbar-surah--compact .reader-toolbar-surah__icon {
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 0.375rem;
+}
+
+.reader-toolbar-surah--compact .reader-toolbar-surah__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.reader-toolbar-surah--compact .reader-toolbar-surah__label {
+  display: none;
+}
+
+.reader-toolbar-surah--compact .reader-toolbar-surah__name {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.reader-toolbar-surah--compact .reader-toolbar-surah__chevron {
+  width: 12px;
+  height: 12px;
+}
+
+.reader-toolbar-modes--compact {
+  padding: 0.0625rem;
+  border-radius: 0.5rem;
+  max-width: 14rem;
+}
+
+.reader-toolbar-modes--compact .reader-toolbar-mode {
+  padding: 0.1875rem 0.4375rem;
+  min-height: 1.625rem;
+  font-size: 0.6875rem;
+  border-radius: 0.375rem;
+}
+
+@media (min-width: 768px) {
+  .reader-toolbar-modes--compact .reader-toolbar-mode__label--short {
+    display: inline;
+  }
+
+  .reader-toolbar-modes--compact .reader-toolbar-mode__label--long {
+    display: none;
+  }
+}
+
+.reader-toolbar-bar__progress--compact {
+  padding: 0 0.625rem 0.25rem;
+  gap: 0;
+}
+
+.reader-toolbar-bar__progress--compact::before {
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 1.5px;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.reader-toolbar-bar__progress--compact .reader-toolbar-bar__progress-fill {
+  height: 1.5px;
+  border-radius: 0;
+}
+
+.reader-toolbar-bar--compact .reader-toolbar-play {
+  min-height: 1.875rem;
+  height: 1.875rem;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.6875rem;
+  gap: 0.25rem;
+}
+
+.reader-toolbar-bar--compact .reader-toolbar-play svg {
+  width: 14px;
+  height: 14px;
+}
+
+.reader-toolbar-bar--compact .reader-toolbar-play__label {
+  display: none;
+}
+
+.reader-toolbar-bar--compact .reader-toolbar-icon {
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 0.5rem;
+}
+
+.reader-toolbar-bar--compact .reader-toolbar-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.reader-toolbar-bar--compact .reader-toolbar-icon span {
+  font-size: 0.6875rem;
+}
+
+.reader-toolbar-bar--compact .reader-toolbar-actions {
+  gap: 0.25rem;
+}
+
+.reader-toolbar-bar__panel {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.75rem;
+}
+
+.reader-toolbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-ink-secondary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.reader-toolbar-icon:hover:not(:disabled) {
+  border-color: var(--color-border-hover, var(--color-border));
+  background: var(--color-surface-secondary);
+  color: var(--color-ink);
+}
+
+.reader-toolbar-icon--active {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+.reader-toolbar-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.reader-toolbar-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  height: 2.75rem;
+  padding: 0 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.reader-toolbar-play:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  background: var(--color-accent-subtle);
+}
+
+.reader-toolbar-play--paused {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  background: var(--color-accent-subtle);
+}
+
+.reader-toolbar-play--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.reader-toolbar-play--active:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+@media (max-width: 639px) {
+  .reader-toolbar-play {
+    width: 2.75rem;
+    padding: 0;
+  }
+
+  .reader-toolbar-play__label {
+    display: none;
+  }
+}
+
+/* Verse insight panel */
+.insight-arabic {
+  font-family: var(--font-arabic);
+}
+
+.insight-card {
+  padding: 1rem 1.125rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.insight-card:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.insight-card--active {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent-subtle) 55%, var(--color-surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.insight-card--tafsir {
+  padding: 1.25rem 1.375rem;
+}
+
+.tafsir-prose {
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  color: var(--color-ink-secondary);
+}
+
+.tafsir-prose p {
+  margin: 0 0 1rem;
+}
+
+.tafsir-prose p:last-child {
+  margin-bottom: 0;
+}
+
+.tafsir-prose h1,
+.tafsir-prose h2,
+.tafsir-prose h3,
+.tafsir-prose h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 1.25rem 0 0.5rem;
+}
+
+.tafsir-prose ul,
+.tafsir-prose ol {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.tafsir-prose li {
+  margin-bottom: 0.35rem;
+}
+
+.tafsir-prose a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tafsir-prose blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-surface-secondary);
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-style: italic;
+}
+
+/* Feature pages (goals, library, search, reflect, settings) */
+.feature-hero {
+  padding-bottom: 0.25rem;
+}
+
+.feature-hero h1 {
+  letter-spacing: -0.03em;
+}
+
+.feature-card {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 10px 32px rgba(26, 127, 110, 0.05);
+}
+
+.feature-card--link {
+  display: block;
+  text-decoration: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card--link:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 12px 36px rgba(26, 127, 110, 0.08);
+}
+
+.feature-highlight {
+  padding: 1.25rem 1.5rem;
+  border-radius: 1.125rem;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent-subtle) 90%, var(--color-surface)) 0%,
+    var(--color-surface-secondary) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--color-accent) 18%, var(--color-border));
+}
+
+.feature-highlight__eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.feature-highlight__value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+  line-height: 1.1;
+}
+
+.feature-highlight__unit {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+}
+
+.feature-highlight__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-ink-tertiary);
+}
+
+.reader-surah-hero__banner,
+.reader-surah-hero__body,
+.reader-surah-hero__arabic,
+.reader-surah-hero__name,
+.reader-surah-hero__translated,
+.reader-surah-hero__nav-btn span {
+  transition:
+    height 0.25s ease,
+    margin 0.25s ease,
+    padding 0.25s ease,
+    opacity 0.2s ease,
+    font-size 0.25s ease;
+}
+
+.reader-toolbar-bar__inner,
+.reader-toolbar-bar__row,
+.reader-toolbar-surah,
+.reader-toolbar-bar__progress {
+  transition: padding 0.2s ease, gap 0.2s ease;
+}
+
+

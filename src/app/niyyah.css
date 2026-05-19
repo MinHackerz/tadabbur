@@ -1,0 +1,228 @@
+/* ───────────────────────────────────────────────────────────────────
+   Niyyah Gift System — Tailwind v4 design tokens, ornament utilities,
+   keyframes and a small base ruleset. All component styling is done
+   with Tailwind utility classes in the JSX itself.
+   ─────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Niyyah palette — luxury Islamic manuscript */
+  --color-ny-forest: #143028;
+  --color-ny-forest-deep: #0b1c17;
+  --color-ny-sage: #3d6b55;
+  --color-ny-ivory: #f5f0e8;
+  --color-ny-cream: #faf6ec;
+  --color-ny-cream-warm: #f2e9d2;
+  --color-ny-sand: #e6dabd;
+  --color-ny-gold: #b8924a;
+  --color-ny-gold-bright: #d8b15c;
+  --color-ny-gold-soft: #e8d5a3;
+  --color-ny-gold-pale: #fff6d6;
+  --color-ny-charcoal: #2a2622;
+  --color-ny-ember: #8b4513;
+  --color-ny-rose: #b86b6b;
+
+  /* ── Semantic text tokens — ALWAYS use these for text on parchment ─
+     These flip in dark mode so headings and body text stay legible.
+     Use the literal "forest"/"sage" tokens only when the colour itself
+     is the design intent (e.g. text on a gold-gradient button). */
+  --color-ny-ink: #143028;          /* primary heading ink (= forest in light) */
+  --color-ny-ink-soft: #2a2622;     /* body text (= charcoal in light) */
+  --color-ny-muted: #3d6b55;        /* italic muted (= sage in light) */
+  --color-ny-ember-soft: #8b4513;   /* ember accent text */
+
+  --font-niyyah-display: var(--font-niyyah-display), 'Cormorant Garamond', Georgia, serif;
+
+  /* Animations registered with Tailwind so we can do `animate-ny-flicker` */
+  --animate-ny-fade-up: ny-fade-up 0.65s ease both;
+  --animate-ny-fade-in: ny-fade-in 0.3s ease both;
+  --animate-ny-flicker: ny-flicker 2.6s ease-in-out infinite;
+  --animate-ny-bloom: ny-bloom 6s ease-in-out infinite;
+  --animate-ny-drift: ny-pattern-drift 28s ease-in-out infinite alternate;
+  --animate-ny-seal: ny-seal-pop 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-ny-ray: ny-ray-spin 26s linear infinite;
+  --animate-ny-rise: ny-ceremony-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-ny-glow: ny-glow 4s ease-in-out infinite;
+}
+
+[data-theme="dark"] .niyyah-scope {
+  /* Card surfaces — warm dark parchment, not near-black, so gold/cream
+     text reads with proper contrast and the manuscript feel survives. */
+  --color-ny-ivory: #1f261f;
+  --color-ny-cream: #1a221f;
+  --color-ny-cream-warm: #232a25;
+  --color-ny-sand: #2c322a;
+
+  /* Charcoal flips to warm parchment so existing text-ny-charcoal usage
+     stays legible. */
+  --color-ny-charcoal: #ede6d5;
+
+  /* Semantic text tokens — components using these stay legible on the
+     warm-dark cards. text-ny-ink replaces text-ny-forest in body usage. */
+  --color-ny-ink: #f4ecd6;          /* primary heading ink — warm cream */
+  --color-ny-ink-soft: #dccea9;     /* body text — slightly muted cream */
+  --color-ny-muted: #c7a878;        /* italic muted — soft gold-tan */
+  --color-ny-ember-soft: #d8b15c;
+
+  /* Sage flips lighter so existing text-ny-sage usage still reads. */
+  --color-ny-sage: #c7a878;
+}
+
+/* Base typography for the niyyah scope. */
+.niyyah-scope {
+  font-family: 'Source Serif Pro', 'Libre Baskerville', Georgia, serif;
+  color: var(--color-ny-charcoal);
+}
+
+/* ── Decorative utilities ───────────────────────────────────────── */
+
+/* Mashrabiya geometric pattern — used as overlay on dark gradients. */
+@utility mashrabiya-bg {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='none' stroke='%23ffffff' stroke-width='0.7' stroke-opacity='0.85'><path d='M40 0L80 40L40 80L0 40Z'/><path d='M40 14L66 40L40 66L14 40Z'/><path d='M40 28L52 40L40 52L28 40Z'/><circle cx='40' cy='40' r='2.5'/><path d='M0 0L20 20M80 0L60 20M0 80L20 60M80 80L60 60'/></g></svg>");
+  background-size: 80px 80px;
+}
+
+/* Eight-pointed star tile — used at smaller scale in card backgrounds. */
+@utility star-bg {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><g fill='none' stroke='%23b8924a' stroke-width='0.6' stroke-opacity='0.45'><path d='M24 4L34.6 13.4L44 24L34.6 34.6L24 44L13.4 34.6L4 24L13.4 13.4Z'/><path d='M24 4L24 44M4 24L44 24M9.4 9.4L38.6 38.6M38.6 9.4L9.4 38.6'/></g></svg>");
+  background-size: 48px 48px;
+}
+
+/* Parchment paper texture — subtle, used on light cards. */
+@utility parchment-bg {
+  background-color: var(--color-ny-cream);
+  background-image:
+    radial-gradient(
+      ellipse at 18% 8%,
+      color-mix(in srgb, var(--color-ny-gold) 14%, transparent),
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 82% 92%,
+      color-mix(in srgb, var(--color-ny-ember) 10%, transparent),
+      transparent 50%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-ny-charcoal) 2%, transparent) 0 1px,
+      transparent 1px 3px
+    );
+}
+
+/* ── Keyframes ──────────────────────────────────────────────────── */
+
+@keyframes ny-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ny-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ny-flicker {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  20% {
+    opacity: 0.85;
+    transform: scale(0.97);
+  }
+  45% {
+    opacity: 0.95;
+    transform: scale(1.02);
+  }
+  70% {
+    opacity: 0.8;
+    transform: scale(0.98) translateY(-1px);
+  }
+}
+
+@keyframes ny-bloom {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.05) rotate(8deg);
+  }
+}
+
+@keyframes ny-pattern-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-2%, -1%, 0);
+  }
+}
+
+@keyframes ny-seal-pop {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ny-ray-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ny-ceremony-rise {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ny-glow {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .niyyah-scope *,
+  .niyyah-scope *::before,
+  .niyyah-scope *::after,
+  .ny-modal *,
+  .ny-ceremony * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
