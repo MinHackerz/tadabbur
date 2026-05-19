@@ -1,74 +1,63 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma as _prisma } from "@/db";
+import { parseVerseKey, requireUser, toBookmarkItem } from "@/lib/local-store";
 
-import { DEFAULT_BOOKMARK_MUSHAF } from "@/lib/constants";
-import { ensureUserScope, normalizeMutationPayload, parsePositiveInteger, runUserAction } from "@/lib/data";
-import { getSession } from "@/lib/session";
-import { mutationError, withSessionJson } from "@/lib/route-helpers";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prisma = _prisma as any;
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
-  const sessionContext = await getSession(request);
-  const scopeCheck = ensureUserScope(sessionContext.session, "bookmark");
+export async function GET(req: NextRequest) {
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
 
-  if (!scopeCheck.ok) {
-    return mutationError(sessionContext, scopeCheck);
-  }
+  const rows = await prisma.bookmark.findMany({
+    where: { userId: auth.user.sub },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
 
-  const payload = (await request.json().catch(() => ({}))) as {
+  return NextResponse.json({ ok: true, items: rows.map(toBookmarkItem) });
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
+
+  const payload = (await req.json().catch(() => ({}))) as {
+    verseKey?: string;
     chapterNumber?: number | string;
     verseNumber?: number | string;
   };
 
-  // Log for debugging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[DEBUG] Bookmark payload:', payload);
+  // Accept either { verseKey: "2:255" } or legacy { chapterNumber, verseNumber }.
+  const fromKey = payload.verseKey ? parseVerseKey(payload.verseKey) : null;
+  const fromParts = !fromKey && payload.chapterNumber && payload.verseNumber
+    ? parseVerseKey(`${payload.chapterNumber}:${payload.verseNumber}`)
+    : null;
+  const parsed = fromKey ?? fromParts;
+
+  if (!parsed) {
+    return NextResponse.json(
+      { ok: false, message: "Use a verse like 2:255 (chapter:verse)." },
+      { status: 400 },
+    );
   }
 
-  const chapterNumber = parsePositiveInteger(payload.chapterNumber);
-  const verseNumber = parsePositiveInteger(payload.verseNumber);
+  const row = await prisma.bookmark.upsert({
+    where: { userId_verseKey: { userId: auth.user.sub, verseKey: parsed.verseKey } },
+    create: {
+      userId: auth.user.sub,
+      verseKey: parsed.verseKey,
+      surahId: parsed.surahId,
+      verseNumber: parsed.verseNumber,
+    },
+    update: {},
+  });
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[DEBUG] Parsed:', { chapterNumber, verseNumber });
-  }
-
-  if (!chapterNumber || !verseNumber) {
-    return mutationError(sessionContext, {
-      message: "Enter valid chapter and verse numbers before creating a bookmark.",
-      status: 400,
-    });
-  }
-
-  const result = await runUserAction(sessionContext.session, (serverClient) =>
-    serverClient.auth.v1.bookmarks.create({
-      key: chapterNumber,
-      mushaf: DEFAULT_BOOKMARK_MUSHAF,
-      type: "ayah",
-      verseNumber,
-    }),
-  );
-
-  if (result.sessionExpired) {
-    return mutationError(sessionContext, {
-      message: result.error ?? "Session expired.",
-      signedOut: true,
-      status: 401,
-    });
-  }
-
-  if (result.error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Bookmark error:', result.error);
-    }
-    return mutationError(sessionContext, {
-      message: result.error,
-      status: result.upstreamStatus ?? 400,
-    });
-  }
-
-  return withSessionJson(sessionContext, {
-    item: normalizeMutationPayload.bookmark(result.data),
-    message: "Bookmark created.",
+  return NextResponse.json({
     ok: true,
+    message: "Bookmark saved.",
+    item: toBookmarkItem(row),
   });
 }

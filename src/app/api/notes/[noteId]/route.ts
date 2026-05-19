@@ -1,45 +1,59 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma as _prisma } from "@/db";
+import { requireUser, toNoteItem } from "@/lib/local-store";
 
-import { ensureUserScope, runUserAction } from "@/lib/data";
-import { getSession } from "@/lib/session";
-import { mutationError, withSessionJson } from "@/lib/route-helpers";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prisma = _prisma as any;
 
 export const dynamic = "force-dynamic";
 
-export async function DELETE(
-  request: NextRequest,
+async function loadOwnedNote(userId: string, noteId: string) {
+  return prisma.note.findFirst({ where: { id: noteId, userId } });
+}
+
+export async function PUT(
+  req: NextRequest,
   context: { params: Promise<{ noteId: string }> },
 ) {
   const { noteId } = await context.params;
-  const sessionContext = await getSession(request);
-  const scopeCheck = ensureUserScope(sessionContext.session, "note");
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
 
-  if (!scopeCheck.ok) {
-    return mutationError(sessionContext, scopeCheck);
+  const payload = (await req.json().catch(() => ({}))) as { body?: string };
+  const body = String(payload.body ?? "").trim();
+  if (!body) {
+    return NextResponse.json(
+      { ok: false, message: "Enter a note body before saving." },
+      { status: 400 },
+    );
   }
 
-  const result = await runUserAction(sessionContext.session, (serverClient) =>
-    serverClient.auth.v1.notes.remove(noteId),
-  );
-
-  if (result.sessionExpired) {
-    return mutationError(sessionContext, {
-      message: result.error ?? "Session expired.",
-      signedOut: true,
-      status: 401,
-    });
+  const existing = await loadOwnedNote(auth.user.sub, noteId);
+  if (!existing) {
+    return NextResponse.json({ ok: false, message: "Note not found." }, { status: 404 });
   }
 
-  if (result.error) {
-    return mutationError(sessionContext, {
-      message: result.error,
-      status: result.upstreamStatus ?? 400,
-    });
-  }
-
-  return withSessionJson(sessionContext, {
-    deletedId: noteId,
-    message: "Note deleted.",
-    ok: true,
+  const row = await prisma.note.update({
+    where: { id: existing.id },
+    data: { body },
   });
+
+  return NextResponse.json({ ok: true, message: "Note updated.", item: toNoteItem(row) });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ noteId: string }> },
+) {
+  const { noteId } = await context.params;
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
+
+  const existing = await loadOwnedNote(auth.user.sub, noteId);
+  if (!existing) {
+    return NextResponse.json({ ok: false, message: "Note not found." }, { status: 404 });
+  }
+
+  await prisma.note.delete({ where: { id: existing.id } });
+  return NextResponse.json({ ok: true, deletedId: existing.id, message: "Note deleted." });
 }

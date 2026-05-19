@@ -1,13 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import useSWR from "swr";
-import {
-  getReadingEngagement,
-  mercyAvailable,
-  type ReadingEngagement,
-} from "@/lib/readingEngagement";
 import { getSurah } from "@/lib/niyyah";
 import { ArrowRight } from "./icons";
 import { GoldCorners } from "./Ornament";
@@ -19,6 +13,17 @@ const fetchJson = async <T,>(url: string): Promise<T> => {
   return r.json() as Promise<T>;
 };
 
+interface ReadingHistoryRow {
+  id: string;
+  date: string;
+  surahId: number;
+  versesRead: number;
+  minutesRead: number;
+  pagesRead: number;
+  firstVerseKey: string | null;
+  lastVerseKey: string | null;
+}
+
 interface Props {
   bookmarkCount: number;
   notesCount: number;
@@ -27,6 +32,28 @@ interface Props {
   hasGoal: boolean;
   goalLabel?: string;
   goalPlanSummary?: string | null;
+}
+
+function computeStreak(sessions: ReadingHistoryRow[]): number {
+  if (!sessions.length) return 0;
+  const uniqueDates = [...new Set(sessions.map((s) => s.date))].sort().reverse();
+  const today = new Date().toISOString().slice(0, 10);
+  // Streak must include today or yesterday to be active.
+  if (uniqueDates[0] !== today) {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    if (uniqueDates[0] !== yesterday) return 0;
+  }
+  let streak = 1;
+  for (let i = 1; i < uniqueDates.length; i++) {
+    const prev = new Date(uniqueDates[i - 1]).getTime();
+    const curr = new Date(uniqueDates[i]).getTime();
+    if (prev - curr <= 86_400_000 * 1.5) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  return streak;
 }
 
 export default function RhythmStrip({
@@ -38,24 +65,26 @@ export default function RhythmStrip({
   goalLabel,
   goalPlanSummary,
 }: Props) {
-  const [eng, setEng] = useState<ReadingEngagement | null>(null);
-
-  useEffect(() => {
-    setEng(getReadingEngagement());
-  }, []);
-
   // Fetch today's real reading stats from the server (only when logged in)
   const today = new Date().toISOString().slice(0, 10);
   const { data: todayStats } = useSWR<TodayReadingStats>(
     isLoggedIn ? `/api/reading/today?date=${today}` : null,
     fetchJson,
-    { revalidateOnFocus: true, refreshInterval: 120_000 },
+    { revalidateOnFocus: true, refreshInterval: 30_000 },
   );
 
-  const streak = eng?.streakDays ?? 0;
-  const lastSurah = eng?.lastSurahId ? getSurah(eng.lastSurahId) : null;
-  const lastVerse = eng?.lastVerseNumber ?? null;
-  const mercyLeft = eng ? mercyAvailable(eng) : true;
+  // Fetch reading history to compute streak and last position
+  const { data: history } = useSWR<ReadingHistoryRow[]>(
+    isLoggedIn ? "/api/reading/history" : null,
+    fetchJson,
+    { revalidateOnFocus: false },
+  );
+
+  const streak = history ? computeStreak(history) : 0;
+  const lastSession = history?.[0] ?? null;
+  const lastSurah = lastSession ? getSurah(lastSession.surahId) : null;
+  const lastVerse = lastSession?.lastVerseKey?.split(":")[1] ?? null;
+  const readToday = lastSession?.date === today;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
@@ -89,11 +118,11 @@ export default function RhythmStrip({
           type="button"
           onClick={() =>
             onContinueReader(
-              eng?.lastSurahId ?? 1,
+              lastSession?.surahId ?? 1,
               lastVerse ? `verse-${lastVerse}` : undefined,
             )
           }
-          className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 bg-ny-forest text-white text-[13px] font-semibold hover:bg-ny-forest-deep transition-colors shadow-[0_8px_18px_rgba(20,48,40,0.28)] hover:shadow-[0_10px_22px_rgba(11,28,23,0.35)]"
+          className="rhythm-btn rhythm-btn--primary mt-auto"
         >
           Continue reading <ArrowRight />
         </button>
@@ -105,26 +134,33 @@ export default function RhythmStrip({
           Today&apos;s reading
         </p>
         {isLoggedIn && todayStats ? (
-          <dl className="grid grid-cols-3 gap-2 mt-2">
-            <div className="flex flex-col items-center">
-              <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Verses</dt>
-              <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
-                {todayStats.versesRead}
-              </dd>
-            </div>
-            <div className="flex flex-col items-center">
-              <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Minutes</dt>
-              <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
-                {todayStats.minutesRead}
-              </dd>
-            </div>
-            <div className="flex flex-col items-center">
-              <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Pages</dt>
-              <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
-                {todayStats.pagesRead}
-              </dd>
-            </div>
-          </dl>
+          <>
+            <dl className="grid grid-cols-3 gap-2 mt-2">
+              <div className="flex flex-col items-center">
+                <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Verses</dt>
+                <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
+                  {todayStats.versesRead}
+                </dd>
+              </div>
+              <div className="flex flex-col items-center">
+                <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Minutes</dt>
+                <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
+                  {todayStats.minutesRead}
+                </dd>
+              </div>
+              <div className="flex flex-col items-center">
+                <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Streak</dt>
+                <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
+                  {streak}d
+                </dd>
+              </div>
+            </dl>
+            <p className="text-[11px] text-ny-sage italic m-0 mt-1.5">
+              {readToday
+                ? "You read today — barakallahu feek."
+                : "Open the reader to extend your rhythm."}
+            </p>
+          </>
         ) : isLoggedIn ? (
           <p className="text-[13px] text-ny-charcoal/65 italic m-0 mt-2 leading-snug">
             Open the reader to start tracking today&apos;s session.
@@ -136,7 +172,7 @@ export default function RhythmStrip({
         )}
         <Link
           href="/read/1"
-          className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 bg-ny-forest text-white text-[13px] font-semibold hover:bg-ny-forest-deep transition-colors shadow-[0_8px_18px_rgba(20,48,40,0.28)]"
+          className="rhythm-btn rhythm-btn--primary mt-auto"
         >
           Open reader <ArrowRight />
         </Link>
@@ -167,7 +203,7 @@ export default function RhythmStrip({
             )}
             <Link
               href="/goals"
-              className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 border border-ny-gold/40 text-ny-ink bg-ny-cream-warm/60 text-[13px] font-semibold hover:bg-ny-cream-warm transition-colors"
+              className="rhythm-btn rhythm-btn--secondary mt-auto"
             >
               Manage goal <ArrowRight />
             </Link>
@@ -179,7 +215,7 @@ export default function RhythmStrip({
             </p>
             <Link
               href="/goals"
-              className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 bg-ny-forest text-white text-[13px] font-semibold hover:bg-ny-forest-deep transition-colors shadow-[0_8px_18px_rgba(20,48,40,0.28)] hover:shadow-[0_10px_22px_rgba(11,28,23,0.35)]"
+              className="rhythm-btn rhythm-btn--primary mt-auto"
             >
               Set a goal <ArrowRight />
             </Link>
@@ -212,7 +248,7 @@ export default function RhythmStrip({
         </div>
         <Link
           href="/library"
-          className="mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 border border-ny-gold/40 text-ny-ink bg-ny-cream-warm/60 text-[13px] font-semibold hover:bg-ny-cream-warm transition-colors"
+          className="rhythm-btn rhythm-btn--secondary mt-auto"
         >
           {isLoggedIn ? "Open library" : "Sign in to save"} <ArrowRight />
         </Link>

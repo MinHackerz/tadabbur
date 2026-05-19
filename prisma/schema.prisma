@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ── Enums ────────────────────────────────────────────────────────────
@@ -67,6 +66,7 @@ model NiyyahJourney {
   updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at")
 
   days NiyyahJourneyDay[]
+  gift JourneyGift?
 
   @@map("niyyah_journeys")
 }
@@ -88,6 +88,19 @@ model NiyyahJourneyDay {
   @@map("niyyah_journey_days")
 }
 
+model JourneyGift {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journeyId     String   @unique @map("journey_id") @db.Uuid
+  imageMime     String   @default("image/png") @map("image_mime") @db.VarChar(60)
+  imageBytes    Bytes    @map("image_bytes")
+  recipientName String   @map("recipient_name") @db.VarChar(255)
+  generatedAt   DateTime @default(now()) @map("generated_at")
+
+  journey NiyyahJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  @@map("journey_gifts")
+}
+
 model ReadingSession {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId        String   @map("user_id") @db.VarChar(255)
@@ -102,4 +115,94 @@ model ReadingSession {
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("reading_sessions")
+}
+
+// Bookmarks, collections, notes, goals, and verse-completion tracking
+// are now first-party tables (replacing the inconsistent QF SDK paths).
+
+model Bookmark {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.VarChar(255)
+  verseKey    String   @map("verse_key") @db.VarChar(20)
+  surahId     Int      @map("surah_id")
+  verseNumber Int      @map("verse_number")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, verseKey])
+  @@index([userId])
+  @@map("bookmarks")
+}
+
+model Collection {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String           @map("user_id") @db.VarChar(255)
+  name          String           @db.VarChar(255)
+  coverImageUrl String?          @map("cover_image_url") @db.VarChar(1024)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  items CollectionItem[]
+
+  @@index([userId])
+  @@map("collections")
+}
+
+model CollectionItem {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  verseKey     String   @map("verse_key") @db.VarChar(20)
+  addedAt      DateTime @default(now()) @map("added_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, verseKey])
+  @@index([collectionId])
+  @@map("collection_items")
+}
+
+model Note {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.VarChar(255)
+  verseKey  String   @map("verse_key") @db.VarChar(20)
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([userId, verseKey])
+  @@map("notes")
+}
+
+model Goal {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.VarChar(255)
+  period       String   @db.VarChar(20) // "daily" | "weekly"
+  type         String   @db.VarChar(20) // "PAGES" | "VERSES" | "TIME"
+  targetAmount Int      @map("target_amount")
+  mushafId     Int?     @map("mushaf_id")
+  category     String?  @db.VarChar(40)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("goals")
+}
+
+// One row per (user, verse, day). Time-spent is wall-clock between when the
+// verse was first focused and when the user explicitly marked it complete,
+// minus any time the tab was hidden.
+model VerseCompletion {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.VarChar(255)
+  verseKey    String   @map("verse_key") @db.VarChar(20)
+  surahId     Int      @map("surah_id")
+  verseNumber Int      @map("verse_number")
+  timeSpentMs Int      @default(0) @map("time_spent_ms")
+  sessionDate DateTime @map("session_date") @db.Date
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  @@unique([userId, verseKey, sessionDate])
+  @@index([userId, sessionDate])
+  @@map("verse_completions")
 }

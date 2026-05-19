@@ -63,17 +63,17 @@ export function useInsight(chapterId:string,route:string) {
   function repl<T>(k:"bookmarks"|"collections"|"notes",fn:(i:T[])=>T[]){if(!data)return;startTransition(()=>{mutate({...data,[k]:{...data[k],items:fn(data[k].items as T[])}},false)})}
 
   async function createNote(){if(!data?.isLoggedIn){push("Sign in first.",false);return}const vk=noteVK.trim(),b=noteBody.trim();if(!vk||!b){push("Verse key and body required.",false);return}const tmp:NoteItem={body:b,id:`t-${tid()}`,ranges:[`${vk}-${vk}`]};const prev=data.notes.items;repl<NoteItem>("notes",i=>[tmp,...i]);try{const r=await mutReq<NoteItem>("/api/notes","POST",{body:b,verseKey:vk});repl<NoteItem>("notes",i=>i.map(x=>x.id===tmp.id?r.item??x:x));setNoteBody("");push(r.message??"Note created.",true)}catch(e){repl<NoteItem>("notes",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
-  async function deleteNote(id:string|null){if(!id)return;const prev=data?.notes.items??[];repl<NoteItem>("notes",i=>i.filter(x=>x.id!==id));try{const r=await mutReq(`/api/notes/${id}`,"DELETE");push(r.message??"Deleted.",true)}catch(e){repl<NoteItem>("notes",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
+  async function deleteNote(id:string|null){if(!id)return;const prev=data?.notes.items??[];repl<NoteItem>("notes",i=>i.filter(x=>x.id!==id));try{await mutReq(`/api/notes/${id}`,"DELETE")}catch(e){repl<NoteItem>("notes",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
   async function createBm(){const cn=parseInt(bmCh),vn=parseInt(bmV);if(!cn||!vn){push("Invalid numbers.",false);return}const tmp:BookmarkItem={id:`t-${tid()}`,readerUrl:`/read/${cn}`,type:"ayah",verseKey:`${cn}:${vn}`};const prev=data?.bookmarks.items??[];repl<BookmarkItem>("bookmarks",i=>[tmp,...i]);try{const r=await mutReq<BookmarkItem>("/api/bookmarks","POST",{chapterNumber:cn,verseNumber:vn});repl<BookmarkItem>("bookmarks",i=>i.map(x=>x.id===tmp.id?r.item??x:x));push(r.message??"Bookmarked.",true)}catch(e){repl<BookmarkItem>("bookmarks",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
   async function deleteBm(id:string|null){
     if(!id){push("Cannot remove — bookmark id missing. Try refreshing.",false);await mutate();return}
     const prev=data?.bookmarks.items??[];
     repl<BookmarkItem>("bookmarks",i=>i.filter(x=>x.id!==id));
-    try{await mutReq(`/api/bookmarks/${id}`,"DELETE");push("Deleted.",true)}
+    try{await mutReq(`/api/bookmarks/${id}`,"DELETE")}
     catch(e){repl<BookmarkItem>("bookmarks",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}
   }
   async function createColl(){const n=collName.trim();if(!n){push("Name required.",false);return}const tmp:CollectionItem={id:`t-${tid()}`,name:n,updatedAt:new Date().toISOString()};const prev=data?.collections.items??[];repl<CollectionItem>("collections",i=>[tmp,...i]);try{const r=await mutReq<CollectionItem>("/api/collections","POST",{name:n});repl<CollectionItem>("collections",i=>i.map(x=>x.id===tmp.id?r.item??x:x));setCollName("");push(r.message??"Created.",true)}catch(e){repl<CollectionItem>("collections",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
-  async function deleteColl(id:string|null){if(!id)return;const prev=data?.collections.items??[];repl<CollectionItem>("collections",i=>i.filter(x=>x.id!==id));try{await mutReq(`/api/collections/${id}`,"DELETE");push("Deleted.",true)}catch(e){repl<CollectionItem>("collections",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
+  async function deleteColl(id:string|null){if(!id)return;const prev=data?.collections.items??[];repl<CollectionItem>("collections",i=>i.filter(x=>x.id!==id));try{await mutReq(`/api/collections/${id}`,"DELETE")}catch(e){repl<CollectionItem>("collections",()=>prev);push((e as MutR).message??"Failed.",false);await mutate()}}
   async function refreshSession(){try{const r=await mutReq("/api/session/refresh","POST");push(r.message??"Refreshed.",true);await mutate()}catch(e){push((e as MutR).message??"Failed.",false);await mutate()}}
   async function submitGoalPayload(payload:Record<string,unknown>){try{const r=await mutReq("/api/goals","POST",{payload});setGoalTxt(JSON.stringify(payload,null,2));push(r.message??"Saved.",true);await mutate()}catch(e){push((e as MutR).message??"Failed.",false)}}
   async function submitGoal(){const p=tryJ(goalTxt);if(!p){push("Invalid JSON.",false);return}await submitGoalPayload(p)}
@@ -136,7 +136,6 @@ export function useInsight(chapterId:string,route:string) {
     }
     try{
       await mutReq(`/api/bookmarks/${bookmark.id}`,"DELETE");
-      push("Bookmark removed.",true);
     }catch(e){
       repl<BookmarkItem>("bookmarks",()=>prev);
       push((e as MutR).message??"Failed.",false);

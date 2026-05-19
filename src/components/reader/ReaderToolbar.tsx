@@ -112,12 +112,13 @@ export default function ReaderToolbar({
           </div>
 
           <div className="reader-toolbar-actions">
-            {canPlaySurah && onPlaySurah && (
+            {onPlaySurah && (
               <button
                 type="button"
                 onClick={onPlaySurah}
                 aria-pressed={surahPlaying}
-                className={`reader-toolbar-play ${surahPlaying ? "reader-toolbar-play--active" : surahAudioActive ? "reader-toolbar-play--paused" : ""}`}
+                disabled={!canPlaySurah}
+                className={`reader-toolbar-play ${surahPlaying ? "reader-toolbar-play--active" : surahAudioActive ? "reader-toolbar-play--paused" : ""} ${!canPlaySurah ? "opacity-40 cursor-not-allowed" : ""}`}
                 aria-label={
                   surahPlaying
                     ? "Pause surah recitation"

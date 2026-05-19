@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 import type { BookmarkItem, BootstrapPayload, NoteItem } from "@/lib/types";
-import type { Journey } from "@/lib/niyyah";
+import type { Journey, JourneyDay } from "@/lib/niyyah";
 import { totalVersesRead, formatLongDate, progressPct } from "@/lib/niyyah";
 import {
   btnDanger,
@@ -268,6 +268,41 @@ function JourneyCard({ journey, completed = false }: { journey: Journey; complet
   const typeLabel = JOURNEY_TYPE_LABELS[journey.type] ?? journey.type;
   const typeColor = JOURNEY_TYPE_COLORS[journey.type] ?? "bg-surface-secondary border-border text-ink-secondary";
 
+  function handleDownloadGift() {
+    window.open(`/api/niyyah/gift?journeyId=${encodeURIComponent(journey.id)}`, "_blank");
+  }
+
+  async function handleShareGift() {
+    const appUrl = typeof window !== "undefined" ? window.location.origin : "https://tadabbur.app";
+    const message =
+      `A Qur'an reading was completed in dedication to ${journey.recipientName} — ${journey.occasion}. ` +
+      `${journey.completedDays?.length ?? 0} days, ${verses} verses. May Allah accept it.\n\n` +
+      `Start your own journey: ${appUrl}`;
+
+    // Try Web Share API with the stored gift image
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        const res = await fetch(`/api/niyyah/gift?journeyId=${encodeURIComponent(journey.id)}`, { credentials: "include" });
+        if (res.ok) {
+          const blob = await res.blob();
+          const file = new File([blob], `niyyah-gift-${journey.recipientName.replace(/[^a-z0-9]/gi, "-")}.png`, { type: "image/png" });
+          const shareData: ShareData = { title: `Niyyah Gift — ${journey.recipientName}`, text: message };
+          if (navigator.canShare?.({ files: [file] })) {
+            shareData.files = [file];
+          }
+          await navigator.share(shareData);
+          return;
+        }
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") return;
+      }
+    }
+
+    // Fallback: WhatsApp with text + link
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank", "noopener");
+  }
+
   return (
     <article className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5 shadow-sm hover:border-accent/30 transition-colors">
       {completed && (
@@ -320,6 +355,36 @@ function JourneyCard({ journey, completed = false }: { journey: Journey; complet
           &ldquo;{journey.personalDua.slice(0, 120)}{journey.personalDua.length > 120 ? "…" : ""}&rdquo;
         </p>
       )}
+
+      {completed && (
+        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-border/60">
+          <button
+            type="button"
+            onClick={handleDownloadGift}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-accent-subtle text-accent hover:bg-accent/15 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={12} height={12}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Download Gift
+          </button>
+          <button
+            type="button"
+            onClick={handleShareGift}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-surface-secondary text-ink-secondary hover:bg-surface-secondary/80 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={12} height={12}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+            </svg>
+            Share
+          </button>
+        </div>
+      )}
+
+      {/* Reading history for completed/active journeys with days */}
+      {journey.completedDays && journey.completedDays.length > 0 && (
+        <JourneyHistory days={journey.completedDays} />
+      )}
     </article>
   );
 }
@@ -329,6 +394,59 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="text-center">
       <p className="text-[18px] font-bold text-ink leading-none">{value}</p>
       <p className="text-[10px] uppercase tracking-wide text-ink-tertiary mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+/* ── Journey reading history ──────────────────────────────────────── */
+
+function JourneyHistory({ days }: { days: JourneyDay[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? days : days.slice(-5);
+
+  return (
+    <div className="mt-4 pt-3 border-t border-border/60">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-ink-tertiary m-0">
+          Reading history
+        </p>
+        {days.length > 5 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="text-[11px] font-semibold text-accent hover:underline"
+          >
+            {expanded ? "Show less" : `Show all ${days.length} days`}
+          </button>
+        )}
+      </div>
+      <div className="space-y-1.5 max-h-64 overflow-y-auto">
+        {visible.map((day, i) => (
+          <div
+            key={day.date + i}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-secondary/60 border border-border/40 text-[12px]"
+          >
+            <span className="w-6 h-6 flex items-center justify-center rounded-full bg-accent-subtle text-accent text-[10px] font-bold shrink-0">
+              {days.indexOf(day) + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold text-ink">{day.surahRange}</span>
+              <span className="text-ink-tertiary ml-2">{day.versesRead}v</span>
+            </div>
+            <span className="text-ink-tertiary shrink-0">{formatLongDate(day.date)}</span>
+            {day.isMercy && (
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-warm-subtle text-warm">
+                Mercy
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+      {days.length > 0 && (
+        <p className="text-[11px] text-ink-tertiary italic mt-2 m-0">
+          {days.reduce((sum, d) => sum + d.versesRead, 0)} total verses across {days.length} days
+        </p>
+      )}
     </div>
   );
 }
@@ -343,7 +461,7 @@ function ActiveGoalCard({ goal }: { goal: Record<string, unknown> }) {
   const completed = Number(progress?.completedAmount ?? progress?.completed_amount ?? 0);
   const pct = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
 
-  const TYPE_LABELS: Record<string, string> = { PAGES: "pages", VERSES: "verses", TIME: "minutes" };
+  const TYPE_LABELS: Record<string, string> = { VERSES: "verses", TIME: "minutes", SURAHS: "surahs" };
   const unit = TYPE_LABELS[type] ?? type.toLowerCase();
 
   return (

@@ -16,11 +16,14 @@ interface VerseCardProps {
   isActive: boolean;
   isAudioPlaying?: boolean;
   isSurahHighlight?: boolean;
+  isCompleted?: boolean;
   isLoggedIn: boolean;
   onBookmark: () => void;
   onNote: () => void;
   onCopy: () => void;
   onPlay: () => void;
+  onMarkComplete?: () => void;
+  onUndoComplete?: () => void;
   onOpenInsights: (tab?: InsightTab) => void;
   /** Called with the article element once mounted — used by the reading tracker */
   onObserve?: (el: HTMLElement | null, verseKey: string) => void;
@@ -37,11 +40,14 @@ export default function VerseCard({
   isActive,
   isAudioPlaying = false,
   isSurahHighlight = false,
+  isCompleted = false,
   isLoggedIn,
   onBookmark,
   onNote,
   onCopy,
   onPlay,
+  onMarkComplete,
+  onUndoComplete,
   onOpenInsights,
   onObserve,
 }: VerseCardProps) {
@@ -104,25 +110,24 @@ export default function VerseCard({
           )}
 
           <div className="verse-card__actions flex flex-wrap items-center gap-1.5 mt-6 pt-4 border-t border-border/70">
-            {verse.audioUrl && (
-              <ActionChip
-                onClick={onPlay}
-                active={isAudioPlaying}
-                label={isAudioPlaying ? "Pause" : "Play"}
-                icon={
-                  isAudioPlaying ? (
-                    <svg viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
-                      <path d="M8 5.14v14.72a1 1 0 001.5.86l11-7.36a1 1 0 000-1.72l-11-7.36a1 1 0 00-1.5.86z" />
-                    </svg>
-                  )
-                }
-              />
-            )}
+            <ActionChip
+              onClick={onPlay}
+              active={isAudioPlaying}
+              disabled={!verse.audioUrl}
+              label={isAudioPlaying ? "Pause" : "Play"}
+              icon={
+                isAudioPlaying ? (
+                  <svg viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                    <rect x="6" y="5" width="4" height="14" rx="1" />
+                    <rect x="14" y="5" width="4" height="14" rx="1" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                    <path d="M8 5.14v14.72a1 1 0 001.5.86l11-7.36a1 1 0 000-1.72l-11-7.36a1 1 0 00-1.5.86z" />
+                  </svg>
+                )
+              }
+            />
             <ActionChip
               onPointerDown={() => {
                 prefetchTranslations(verseKey, translationId);
@@ -186,6 +191,16 @@ export default function VerseCard({
                     )
                   }
                 />
+                <ActionChip
+                  onClick={() => isCompleted ? onUndoComplete?.() : onMarkComplete?.()}
+                  active={isCompleted}
+                  label={isCompleted ? "Completed ✓" : "Mark complete"}
+                  icon={
+                    <svg viewBox="0 0 24 24" fill={isCompleted ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} width={14} height={14}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                  }
+                />
               </>
             )}
           </div>
@@ -207,19 +222,22 @@ function ActionChip({
   label,
   icon,
   active = false,
+  disabled = false,
 }: {
   onClick: () => void;
   onPointerDown?: () => void;
   label: string;
   icon: React.ReactNode;
   active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onPointerDown={onPointerDown}
-      onClick={onClick}
-      className={`verse-chip ${active ? "verse-chip--active" : ""}`}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`verse-chip ${active ? "verse-chip--active" : ""} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
     >
       {icon}
       {label}

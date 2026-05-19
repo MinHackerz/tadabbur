@@ -1,102 +1,57 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma as _prisma } from "@/db";
+import { parseVerseKey, requireUser, toNoteItem } from "@/lib/local-store";
 
-import { ensureUserScope, normalizeMutationPayload, parseVerseKey, runUserAction } from "@/lib/data";
-import { getSession } from "@/lib/session";
-import { mutationError, withSessionJson } from "@/lib/route-helpers";
-import { prisma } from "@/db";
-import { jwtDecode } from "jwt-decode";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prisma = _prisma as any;
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
-  const sessionContext = await getSession(request);
-  const scopeCheck = ensureUserScope(sessionContext.session, "note");
+export async function GET(req: NextRequest) {
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
 
-  if (!scopeCheck.ok) {
-    return mutationError(sessionContext, scopeCheck);
-  }
+  const rows = await prisma.note.findMany({
+    where: { userId: auth.user.sub },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+  });
 
-  const payload = (await request.json().catch(() => ({}))) as {
-    body?: string;
+  return NextResponse.json({ ok: true, items: rows.map(toNoteItem) });
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
+
+  const payload = (await req.json().catch(() => ({}))) as {
     verseKey?: string;
+    body?: string;
   };
 
-  // Log for debugging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[DEBUG] Note payload:', payload);
-  }
-
   const body = String(payload.body ?? "").trim();
-  const verseKey = parseVerseKey(payload.verseKey);
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[DEBUG] Parsed note:', { body: body.substring(0, 50), verseKey });
-  }
+  const parsed = parseVerseKey(payload.verseKey);
 
   if (!body) {
-    return mutationError(sessionContext, {
-      message: "Enter a note body before saving.",
-      status: 400,
-    });
+    return NextResponse.json(
+      { ok: false, message: "Enter a note body before saving." },
+      { status: 400 },
+    );
+  }
+  if (!parsed) {
+    return NextResponse.json(
+      { ok: false, message: "Use a verse key like 1:1." },
+      { status: 400 },
+    );
   }
 
-  if (!verseKey) {
-    return mutationError(sessionContext, {
-      message: "Use a verse key like 1:1.",
-      status: 400,
-    });
-  }
-
-  const result = await runUserAction(sessionContext.session, (serverClient) =>
-    serverClient.auth.v1.notes.create({
+  const row = await prisma.note.create({
+    data: {
+      userId: auth.user.sub,
+      verseKey: parsed.verseKey,
       body,
-      ranges: [`${verseKey}-${verseKey}`],
-      saveToQR: false,
-    }),
-  );
-
-  if (result.sessionExpired) {
-    return mutationError(sessionContext, {
-      message: result.error ?? "Session expired.",
-      signedOut: true,
-      status: 401,
-    });
-  }
-
-  if (result.error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Note error:', result.error);
-    }
-    return mutationError(sessionContext, {
-      message: result.error,
-      status: result.upstreamStatus ?? 400,
-    });
-  }
-
-  // Attempt to save advanced metadata to Neon database
-  try {
-    if (process.env.DATABASE_URL && (result.data as { id: string | number })?.id) {
-      const idToken = sessionContext.session?.oidcLogoutIdTokenHint;
-      if (idToken) {
-        const decoded = jwtDecode<{ sub: string }>(idToken);
-        await prisma.userNotesMeta.upsert({
-          where: { id: (result.data as { id: string | number }).id.toString() },
-          create: {
-            id: (result.data as { id: string | number }).id.toString(),
-            userId: decoded.sub,
-            richTextContent: body,
-          },
-          update: { richTextContent: body },
-        });
-      }
-    }
-  } catch {
-    // Silently skip if DB is unavailable
-  }
-
-  return withSessionJson(sessionContext, {
-    item: normalizeMutationPayload.note(result.data),
-    message: "Note created and synced to Neon.",
-    ok: true,
+    },
   });
+
+  return NextResponse.json({ ok: true, message: "Note saved.", item: toNoteItem(row) });
 }

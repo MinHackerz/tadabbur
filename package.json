@@ -9,14 +9,18 @@
     "lint": "next lint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:test": "tsx scripts/test-db-connection.ts",
+    "db:network": "bash scripts/check-network.sh"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@upstash/redis": "^1.38.0",
     "jwt-decode": "^4.0.0",
     "next": "^16.2.6",
+    "pg": "^8.21.0",
     "postcss": "^8.5.14",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
@@ -28,11 +32,14 @@
     "@eslint/js": "^9.17.0",
     "@next/eslint-plugin-next": "^16.2.6",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "dotenv": "^17.4.2",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.6",
-    "prisma": "^5.22.0",
+    "prisma": "^7.8.0",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   }
 }

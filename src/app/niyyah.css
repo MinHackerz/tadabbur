@@ -226,3 +226,97 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+
+/* ── Dark mode overrides for Niyyah modals ────────────────────────── */
+[data-theme="dark"] .niyyah-scope [role="dialog"] {
+  --ny-cream: #1a2420;
+  --ny-cream-warm: #1e2a26;
+  --ny-ivory: #151e1a;
+  --ny-ink: #e8e4dc;
+  --ny-charcoal: #d4cfc5;
+  --ny-sage: #8fa89a;
+  --ny-forest: #4a9b7a;
+  --ny-forest-deep: #3d8568;
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] .bg-ny-cream {
+  background-color: #1a2420;
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] .bg-ny-ivory {
+  background-color: #151e1a;
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] input,
+[data-theme="dark"] .niyyah-scope [role="dialog"] select,
+[data-theme="dark"] .niyyah-scope [role="dialog"] textarea {
+  background-color: #0f1714;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e8e4dc;
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] input::placeholder,
+[data-theme="dark"] .niyyah-scope [role="dialog"] textarea::placeholder {
+  color: rgba(232, 228, 220, 0.4);
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] input:focus,
+[data-theme="dark"] .niyyah-scope [role="dialog"] select:focus,
+[data-theme="dark"] .niyyah-scope [role="dialog"] textarea:focus {
+  border-color: var(--ny-gold);
+  box-shadow: 0 0 0 2px rgba(184, 146, 74, 0.25);
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] .text-ny-ink {
+  color: #e8e4dc;
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] .text-ny-charcoal,
+[data-theme="dark"] .niyyah-scope [role="dialog"] [class*="text-ny-charcoal/"] {
+  color: rgba(212, 207, 197, 0.85);
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] .border-ny-charcoal\/10,
+[data-theme="dark"] .niyyah-scope [role="dialog"] .border-ny-charcoal\/15,
+[data-theme="dark"] .niyyah-scope [role="dialog"] .border-ny-charcoal\/20 {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Goal preset cards in dark mode */
+[data-theme="dark"] .niyyah-scope [role="dialog"] [role="radio"][aria-checked="false"] {
+  background-color: #151e1a;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] [role="radio"][aria-checked="false"]:hover {
+  border-color: rgba(184, 146, 74, 0.4);
+}
+
+/* Ghost button in dark mode */
+[data-theme="dark"] .niyyah-scope [role="dialog"] .bg-transparent {
+  color: #e8e4dc;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .niyyah-scope [role="dialog"] .bg-transparent:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(184, 146, 74, 0.4);
+}
+
+/* Close button in dark mode */
+[data-theme="dark"] .niyyah-scope [role="dialog"] button[aria-label="Close"] {
+  background-color: #1a2420;
+  border-color: var(--ny-gold);
+  color: #e8e4dc;
+}
+
+/* Parchment bg override */
+[data-theme="dark"] .niyyah-scope [role="dialog"] .parchment-bg {
+  background-image: none;
+}
+
+/* Stepper inactive dots */
+[data-theme="dark"] .niyyah-scope [role="dialog"] .bg-ny-ivory {
+  background-color: #151e1a;
+}

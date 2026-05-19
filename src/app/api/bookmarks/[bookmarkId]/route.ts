@@ -1,45 +1,37 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma as _prisma } from "@/db";
+import { requireUser } from "@/lib/local-store";
 
-import { ensureUserScope, runUserAction } from "@/lib/data";
-import { getSession } from "@/lib/session";
-import { mutationError, withSessionJson } from "@/lib/route-helpers";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prisma = _prisma as any;
 
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
-  request: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ bookmarkId: string }> },
 ) {
   const { bookmarkId } = await context.params;
-  const sessionContext = await getSession(request);
-  const scopeCheck = ensureUserScope(sessionContext.session, "bookmark");
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
 
-  if (!scopeCheck.ok) {
-    return mutationError(sessionContext, scopeCheck);
+  // Allow either the row id (uuid) or the verse key as the identifier so the
+  // reader can call /api/bookmarks/2:255 to remove without a round-trip lookup.
+  const row = bookmarkId.includes(":")
+    ? await prisma.bookmark.findUnique({
+        where: { userId_verseKey: { userId: auth.user.sub, verseKey: bookmarkId } },
+      })
+    : await prisma.bookmark.findFirst({
+        where: { id: bookmarkId, userId: auth.user.sub },
+      });
+
+  if (!row) {
+    return NextResponse.json(
+      { ok: false, message: "Bookmark not found." },
+      { status: 404 },
+    );
   }
 
-  const result = await runUserAction(sessionContext.session, (serverClient) =>
-    serverClient.auth.v1.bookmarks.remove(bookmarkId),
-  );
-
-  if (result.sessionExpired) {
-    return mutationError(sessionContext, {
-      message: result.error ?? "Session expired.",
-      signedOut: true,
-      status: 401,
-    });
-  }
-
-  if (result.error) {
-    return mutationError(sessionContext, {
-      message: result.error,
-      status: result.upstreamStatus ?? 400,
-    });
-  }
-
-  return withSessionJson(sessionContext, {
-    deletedId: bookmarkId,
-    message: "Bookmark deleted.",
-    ok: true,
-  });
+  await prisma.bookmark.delete({ where: { id: row.id } });
+  return NextResponse.json({ ok: true, deletedId: row.id, message: "Bookmark removed." });
 }

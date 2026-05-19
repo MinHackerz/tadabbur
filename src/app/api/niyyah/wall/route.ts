@@ -18,7 +18,7 @@ export async function GET() {
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const wallItems = journeys.map((j) => {
+    const wallItems = journeys.map((j: typeof journeys[number]) => {
       const journeyDate = j.createdAt.toISOString().slice(0, 10);
       const isCompletedToday = j.isComplete && journeyDate === today;
       return {
@@ -31,8 +31,8 @@ export async function GET() {
       };
     });
 
-    const activeJourneys = wallItems.filter((w) => !w.isComplete).slice(0, 6);
-    const completedToday = wallItems.filter((w) => w.isComplete).slice(0, 2);
+    const activeJourneys = wallItems.filter((w: typeof wallItems[number]) => !w.isComplete).slice(0, 6);
+    const completedToday = wallItems.filter((w: typeof wallItems[number]) => w.isComplete).slice(0, 2);
     const displayItems = [...activeJourneys, ...completedToday]
       .sort(() => Math.random() - 0.5)
       .slice(0, 8);

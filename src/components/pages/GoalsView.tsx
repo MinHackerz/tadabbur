@@ -50,9 +50,9 @@ const IconCheck = () => (
 );
 
 const GOAL_TYPES = [
-  { id: "PAGES", label: "Pages", unit: "pages", Icon: IconPages, description: "Track by Quran pages" },
   { id: "VERSES", label: "Verses", unit: "verses", Icon: IconVerses, description: "Count individual verses" },
   { id: "TIME", label: "Minutes", unit: "min", Icon: IconTime, description: "Measure reading time" },
+  { id: "SURAHS", label: "Surahs", unit: "surahs", Icon: IconPages, description: "Track surahs completed" },
 ] as const;
 
 interface GoalsViewProps {
@@ -67,12 +67,12 @@ function parseGoal(data: Record<string, unknown> | null): {
   target: number;
 } {
   const period = String(data?.period ?? "daily").toLowerCase();
-  const type = String(data?.type ?? "PAGES").toUpperCase();
-  const target = Number(data?.targetAmount ?? data?.target_amount ?? 2);
+  const type = String(data?.type ?? "VERSES").toUpperCase();
+  const target = Number(data?.targetAmount ?? data?.target_amount ?? 10);
   return {
     period: period === "weekly" ? "weekly" : "daily",
-    type: ["PAGES", "VERSES", "TIME"].includes(type) ? type : "PAGES",
-    target: Number.isFinite(target) && target > 0 ? Math.min(60, Math.round(target)) : 2,
+    type: ["VERSES", "TIME", "SURAHS"].includes(type) ? type : "VERSES",
+    target: Number.isFinite(target) && target > 0 ? Math.min(114, Math.round(target)) : 10,
   };
 }
 
@@ -93,7 +93,6 @@ export default function GoalsView({ isLoggedIn, data, submitGoalPayload }: Goals
   const handleSave = () => {
     submitGoalPayload({
       category: "QURAN",
-      mushafId: 4, // Hafs/Uthmani — required by the QF goals API
       period,
       type: goalType,
       targetAmount: target,
@@ -222,7 +221,7 @@ export default function GoalsView({ isLoggedIn, data, submitGoalPayload }: Goals
               <input
                 type="range"
                 min={1}
-                max={goalType === "TIME" ? 60 : 30}
+                max={goalType === "TIME" ? 60 : goalType === "SURAHS" ? 10 : 50}
                 value={target}
                 disabled={!isLoggedIn}
                 onChange={(e) => setTarget(Number(e.target.value))}
@@ -231,7 +230,7 @@ export default function GoalsView({ isLoggedIn, data, submitGoalPayload }: Goals
               />
               <div className="flex justify-between text-[11px] text-ink-tertiary mt-2">
                 <span>1 {typeMeta.unit}</span>
-                <span>{goalType === "TIME" ? 60 : 30} {typeMeta.unit}</span>
+                <span>{goalType === "TIME" ? 60 : goalType === "SURAHS" ? 10 : 50} {typeMeta.unit}</span>
               </div>
             </div>
           </div>

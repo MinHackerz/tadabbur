@@ -1,207 +1,217 @@
 "use client";
 /**
- * useReadingTracker
- * ─────────────────
- * Tracks reading engagement in the reader with zero polling:
+ * useReadingTracker — explicit verse-completion model
+ * ───────────────────────────────────────────────────
+ * Progress advances ONLY when the user clicks "Mark complete" on a verse.
+ * Auto-scroll, viewport dwell, or audio playback do NOT count.
  *
- *  • IntersectionObserver watches every verse card.
- *  • A verse is counted as "read" once it has been visible for ≥ DWELL_MS.
- *  • A session timer accumulates wall-clock minutes while the tab is visible.
- *  • Pages are derived from the SURAHS metadata (pageStart/pageEnd).
- *  • The session is flushed to /api/reading/track on:
- *      – page unload (sendBeacon)
- *      – surah navigation (chapterId change)
- *      – manual flush (called by ReaderView on verse change)
+ * Time-on-verse:
+ *  • A per-verse stopwatch starts when the verse enters the viewport (≥50%).
+ *  • The stopwatch pauses when the tab loses focus (visibilitychange).
+ *  • When the user clicks "Mark complete", the accumulated ms is sent to the
+ *    server along with the verseKey.
  *
- * Design goals:
- *  – No setInterval / polling.
- *  – O(1) per verse observation.
- *  – Idempotent: the API upserts, so duplicate flushes are safe.
+ * The server (POST /api/verse-progress) upserts a VerseCompletion row and
+ * rebuilds the day's ReadingSession aggregate.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SURAHS } from "@/lib/niyyah";
-
-const DWELL_MS = 3_000; // verse must be visible for 3 s to count
-const FLUSH_INTERVAL_MS = 60_000; // also flush every 60 s while reading
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function pagesForSurah(surahId: number): number {
-  const s = SURAHS[surahId - 1];
-  if (!s) return 0;
-  return Math.max(1, s.pageEnd - s.pageStart + 1);
-}
 
 export interface ReadingTrackerState {
-  versesRead: number;
+  versesCompleted: number;
   minutesRead: number;
-  pagesRead: number;
-  /** Call this to attach the observer to a verse DOM element */
+  /** Set of verseKeys marked complete this session (for UI badges). */
+  completedKeys: Set<string>;
+  /** Attach to a verse element to start the per-verse stopwatch. */
   observeVerse: (el: HTMLElement | null, verseKey: string) => void;
+  /** Called when the user explicitly marks a verse complete. */
+  markComplete: (verseKey: string) => void;
+  /** Undo a completion. */
+  undoComplete: (verseKey: string) => void;
 }
 
 export function useReadingTracker(
   chapterId: number,
   isLoggedIn: boolean,
 ): ReadingTrackerState {
-  // Set of verse keys confirmed as read this session
-  const readVersesRef = useRef<Set<string>>(new Set());
-  // Timers: verseKey → setTimeout id (dwell timer)
-  const dwellTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  // Session start time (for minute calculation)
-  const sessionStartRef = useRef<number>(Date.now());
-  // Minutes already flushed in previous partial flushes this session
-  const flushedMinutesRef = useRef<number>(0);
-  // Last flushed verse count (to avoid redundant flushes)
-  const lastFlushedCountRef = useRef<number>(0);
-  // Track first/last verse keys seen
-  const firstVerseKeyRef = useRef<string | null>(null);
-  const lastVerseKeyRef = useRef<string | null>(null);
-  // Reactive state for the HUD
-  const [versesRead, setVersesRead] = useState(0);
+  const [completedKeys, setCompletedKeys] = useState<Set<string>>(new Set());
   const [minutesRead, setMinutesRead] = useState(0);
 
-  // Reset when surah changes
+  // Per-verse elapsed time accumulators (ms). Key = verseKey.
+  const elapsedRef = useRef<Map<string, number>>(new Map());
+  // Per-verse "last resumed" timestamp (null = paused or not visible).
+  const resumedAtRef = useRef<Map<string, number>>(new Map());
+  // Whether the tab is currently visible.
+  const visibleRef = useRef(true);
+  // Observers we need to disconnect on cleanup.
+  const observersRef = useRef<Map<string, IntersectionObserver>>(new Map());
+
+  // Reset on surah change.
   useEffect(() => {
-    readVersesRef.current = new Set();
-    dwellTimersRef.current.forEach((t) => clearTimeout(t));
-    dwellTimersRef.current = new Map();
-    sessionStartRef.current = Date.now();
-    flushedMinutesRef.current = 0;
-    lastFlushedCountRef.current = 0;
-    firstVerseKeyRef.current = null;
-    lastVerseKeyRef.current = null;
-    setVersesRead(0);
+    elapsedRef.current = new Map();
+    resumedAtRef.current = new Map();
+    observersRef.current.forEach((obs) => obs.disconnect());
+    observersRef.current = new Map();
+    setCompletedKeys(new Set());
     setMinutesRead(0);
   }, [chapterId]);
 
-  // Live minute counter — updates the HUD every 30 s without polling
+  // Fetch already-completed verses for today on mount.
   useEffect(() => {
     if (!isLoggedIn) return;
-    const id = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - sessionStartRef.current) / 60_000);
-      setMinutesRead(flushedMinutesRef.current + elapsed);
-    }, 30_000);
-    return () => clearInterval(id);
+    let cancelled = false;
+    fetch("/api/verse-progress", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.items) return;
+        const keys = new Set<string>();
+        let totalMs = 0;
+        for (const item of data.items as { verseKey: string; timeSpentMs: number }[]) {
+          // Only include verses from this surah.
+          if (item.verseKey.startsWith(`${chapterId}:`)) {
+            keys.add(item.verseKey);
+            totalMs += item.timeSpentMs;
+          }
+        }
+        if (keys.size > 0) {
+          setCompletedKeys(keys);
+          setMinutesRead(Math.round(totalMs / 60_000));
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [chapterId, isLoggedIn]);
 
-  const flush = useCallback(
-    async (final = false) => {
-      if (!isLoggedIn) return;
-      const count = readVersesRef.current.size;
-      const elapsedMins = Math.floor((Date.now() - sessionStartRef.current) / 60_000);
-      const newMins = elapsedMins; // total since session start
-
-      // Skip if nothing new to report
-      if (count === 0 && newMins === 0) return;
-      if (!final && count === lastFlushedCountRef.current && newMins === flushedMinutesRef.current) return;
-
-      const deltaMinutes = Math.max(0, newMins - flushedMinutesRef.current);
-      flushedMinutesRef.current = newMins;
-      lastFlushedCountRef.current = count;
-
-      const payload = {
-        date: todayIso(),
-        surahId: chapterId,
-        versesRead: count,
-        minutesRead: deltaMinutes,
-        pagesRead: count > 0 ? pagesForSurah(chapterId) : 0,
-        firstVerseKey: firstVerseKeyRef.current,
-        lastVerseKey: lastVerseKeyRef.current,
-      };
-
-      if (final && typeof navigator !== "undefined" && navigator.sendBeacon) {
-        navigator.sendBeacon(
-          "/api/reading/track",
-          new Blob([JSON.stringify(payload)], { type: "application/json" }),
-        );
-      } else {
-        try {
-          await fetch("/api/reading/track", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(payload),
-          });
-        } catch {
-          // silent — non-critical
+  // Pause/resume all active stopwatches on visibility change.
+  useEffect(() => {
+    function onVisChange() {
+      const hidden = document.hidden;
+      visibleRef.current = !hidden;
+      const now = Date.now();
+      if (hidden) {
+        // Pause: flush elapsed for all running stopwatches.
+        for (const [key, startedAt] of resumedAtRef.current.entries()) {
+          const prev = elapsedRef.current.get(key) ?? 0;
+          elapsedRef.current.set(key, prev + (now - startedAt));
         }
+        resumedAtRef.current = new Map();
+      } else {
+        // Resume: restart all that were running before hide.
+        // We don't know which were running, so we restart all that are in-viewport.
+        // The IntersectionObserver callbacks will handle re-starting them.
       }
-    },
-    [chapterId, isLoggedIn],
-  );
+    }
+    document.addEventListener("visibilitychange", onVisChange);
+    return () => document.removeEventListener("visibilitychange", onVisChange);
+  }, []);
 
-  // Periodic flush while reading
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    const id = setInterval(() => void flush(false), FLUSH_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [flush, isLoggedIn]);
-
-  // Flush on page unload
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    const onUnload = () => flush(true);
-    window.addEventListener("pagehide", onUnload);
-    window.addEventListener("beforeunload", onUnload);
-    return () => {
-      window.removeEventListener("pagehide", onUnload);
-      window.removeEventListener("beforeunload", onUnload);
-      // Also flush on unmount (surah navigation)
-      void flush(false);
-    };
-  }, [flush, isLoggedIn]);
-
-  /**
-   * Attach an IntersectionObserver to a verse element.
-   * When the verse enters the viewport, start a dwell timer.
-   * If it stays visible for DWELL_MS, mark it as read.
-   */
   const observeVerse = useCallback(
     (el: HTMLElement | null, verseKey: string) => {
       if (!el || !isLoggedIn) return;
-      if (readVersesRef.current.has(verseKey)) return; // already counted
+      // Don't re-observe.
+      if (observersRef.current.has(verseKey)) return;
 
       const observer = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) {
-            if (!dwellTimersRef.current.has(verseKey)) {
-              const timer = setTimeout(() => {
-                if (!readVersesRef.current.has(verseKey)) {
-                  readVersesRef.current.add(verseKey);
-                  // Track first/last
-                  if (!firstVerseKeyRef.current) firstVerseKeyRef.current = verseKey;
-                  lastVerseKeyRef.current = verseKey;
-                  const newCount = readVersesRef.current.size;
-                  setVersesRead(newCount);
-                }
-                dwellTimersRef.current.delete(verseKey);
-                observer.disconnect();
-              }, DWELL_MS);
-              dwellTimersRef.current.set(verseKey, timer);
+          if (entry.isIntersecting && visibleRef.current) {
+            // Start stopwatch if not already running.
+            if (!resumedAtRef.current.has(verseKey)) {
+              resumedAtRef.current.set(verseKey, Date.now());
             }
           } else {
-            // Left viewport before dwell — cancel timer
-            const t = dwellTimersRef.current.get(verseKey);
-            if (t !== undefined) {
-              clearTimeout(t);
-              dwellTimersRef.current.delete(verseKey);
+            // Pause stopwatch.
+            const startedAt = resumedAtRef.current.get(verseKey);
+            if (startedAt !== undefined) {
+              const prev = elapsedRef.current.get(verseKey) ?? 0;
+              elapsedRef.current.set(verseKey, prev + (Date.now() - startedAt));
+              resumedAtRef.current.delete(verseKey);
             }
           }
         },
-        { threshold: 0.5 }, // at least 50% of the verse must be visible
+        { threshold: 0.5 },
       );
-
       observer.observe(el);
+      observersRef.current.set(verseKey, observer);
     },
     [isLoggedIn],
   );
 
-  const pages = pagesForSurah(chapterId);
-  const pagesRead = versesRead > 0 ? pages : 0;
+  const markComplete = useCallback(
+    (verseKey: string) => {
+      if (!isLoggedIn) return;
+      // Flush the running stopwatch for this verse.
+      const startedAt = resumedAtRef.current.get(verseKey);
+      let elapsed = elapsedRef.current.get(verseKey) ?? 0;
+      if (startedAt !== undefined) {
+        elapsed += Date.now() - startedAt;
+        resumedAtRef.current.delete(verseKey);
+      }
+      elapsedRef.current.set(verseKey, elapsed);
 
-  return { versesRead, minutesRead, pagesRead, observeVerse };
+      // Optimistic UI update.
+      setCompletedKeys((prev) => {
+        const next = new Set(prev);
+        next.add(verseKey);
+        return next;
+      });
+
+      // Estimate minimum reading time from word count in the verse element.
+      // Average Arabic reading pace: ~150 words/minute for contemplative reading.
+      let estimatedMs = elapsed;
+      if (estimatedMs < 5000) {
+        // If elapsed is very short (< 5s), estimate from word count.
+        // Find the verse element and count Arabic words.
+        const el = document.getElementById(`verse-${verseKey.split(":")[1]}`);
+        if (el) {
+          const arabicText = el.querySelector('[dir="rtl"]')?.textContent ?? "";
+          const wordCount = arabicText.trim().split(/\s+/).filter(Boolean).length;
+          // ~150 words/min contemplative pace = 400ms per word
+          const wordBasedMs = Math.max(wordCount * 400, 3000);
+          estimatedMs = Math.max(elapsed, wordBasedMs);
+        } else {
+          estimatedMs = Math.max(elapsed, 5000); // fallback: 5s minimum
+        }
+      }
+
+      setMinutesRead((prev) => prev + Math.max(1, Math.round(estimatedMs / 60_000)));
+
+      // Fire-and-forget POST.
+      fetch("/api/verse-progress", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ verseKey, timeSpentMs: estimatedMs }),
+      }).catch(() => {});
+    },
+    [isLoggedIn],
+  );
+
+  const undoComplete = useCallback(
+    (verseKey: string) => {
+      if (!isLoggedIn) return;
+      setCompletedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(verseKey);
+        return next;
+      });
+      const elapsed = elapsedRef.current.get(verseKey) ?? 0;
+      setMinutesRead((prev) => Math.max(0, prev - Math.round(elapsed / 60_000)));
+      elapsedRef.current.delete(verseKey);
+
+      fetch(`/api/verse-progress?verseKey=${encodeURIComponent(verseKey)}`, {
+        method: "DELETE",
+        credentials: "include",
+      }).catch(() => {});
+    },
+    [isLoggedIn],
+  );
+
+  return {
+    versesCompleted: completedKeys.size,
+    minutesRead,
+    completedKeys,
+    observeVerse,
+    markComplete,
+    undoComplete,
+  };
 }

@@ -1,9 +1,10 @@
 import "server-only";
 
-import { DEFAULT_BOOKMARK_MUSHAF, DEFAULT_FEED_QUERY, LIST_PREVIEW_LIMIT, SESSION_EXPIRED_MESSAGE } from "@/lib/constants";
+import { DEFAULT_FEED_QUERY, LIST_PREVIEW_LIMIT, SESSION_EXPIRED_MESSAGE } from "@/lib/constants";
 import { postMatchesVerse } from "@/lib/reflectPosts";
 import { getConfig } from "@/lib/env";
 import { decodeJwt } from "@/lib/oauth";
+import { loadActiveGoal, loadLibrarySlices } from "@/lib/local-store";
 import type { StoredSession } from "@/lib/session/store";
 import { createClients } from "@/lib/sdk";
 import type {
@@ -987,40 +988,29 @@ export const loadBootstrapData = async (
   const grantedScopes = getGrantedScopes(session);
   const { serverClient } = await createClients(session);
 
+  // Library (bookmarks/notes/collections) and Goals are owned by this app's
+  // own Postgres tables now. We resolve the user id from the OIDC id_token
+  // claims so we can scope the queries by `sub`.
+  const idTokenForUser = (initialUserSession.idToken ?? initialUserSession.id_token) as
+    | string
+    | undefined;
+  const claims = typeof idTokenForUser === "string" ? decodeJwt(idTokenForUser) : null;
+  const userId = (claims?.sub as string | undefined) ?? null;
+
+  const localLibrary = userId
+    ? await loadLibrarySlices(userId).catch(() => ({ bookmarks: [], notes: [], collections: [] }))
+    : { bookmarks: [], notes: [], collections: [] };
+  const localGoal = userId
+    ? await loadActiveGoal(userId).catch(() => null)
+    : null;
+
   const [
     userInfoResult,
-    notesResult,
-    bookmarksResult,
-    collectionsResult,
-    goalsResult,
     preferencesResult,
     profileResult,
     feedResult,
   ] = await Promise.all([
     loadSafely(() => serverClient.oauth2.v1.getUserInfo()),
-    hasScope(grantedScopes, "note")
-      ? loadSafely(() => serverClient.auth.v1.notes.list())
-      : Promise.resolve({ data: null, error: null }),
-    hasScope(grantedScopes, "bookmark")
-      ? loadSafely(() =>
-          serverClient.auth.v1.bookmarks.list({
-            first: LIST_PREVIEW_LIMIT,
-            mushafId: DEFAULT_BOOKMARK_MUSHAF,
-            type: "ayah",
-          }),
-        )
-      : Promise.resolve({ data: null, error: null }),
-    hasScope(grantedScopes, "collection")
-      ? loadSafely(() =>
-          serverClient.auth.v1.collections.list({
-            first: LIST_PREVIEW_LIMIT,
-            sortBy: "recentlyUpdated",
-          }),
-        )
-      : Promise.resolve({ data: null, error: null }),
-    hasScope(grantedScopes, "goal")
-      ? loadSafely(() => serverClient.auth.v1.goals.getTodaysPlan())
-      : Promise.resolve({ data: null, error: null }),
     hasScope(grantedScopes, "preference")
       ? loadSafely(() => serverClient.auth.v1.preferences.get())
       : Promise.resolve({ data: null, error: null }),
@@ -1048,43 +1038,36 @@ export const loadBootstrapData = async (
   const currentScopes = getGrantedScopes(session);
   const idTokenSummary = summarizeIdToken(currentSession.idToken);
   const normalizedUserInfo = asNullableObject(userInfoResult.data);
-  const normalizedGoals = asNullableObject(goalsResult.data);
   const normalizedPreferences = asNullableObject(preferencesResult.data);
   const normalizedProfile = asNullableObject(profileResult.data);
 
   return {
     authError,
-    bookmarks: hasScope(currentScopes, "bookmark")
-      ? {
-          error: bookmarksResult.error,
-          gatingMessage: null,
-          items: normalizeBookmarks(bookmarksResult.data),
-        }
-      : createEmptySlice(createScopeGate("bookmark")),
-    collections: hasScope(currentScopes, "collection")
-      ? {
-          error: collectionsResult.error,
-          gatingMessage: null,
-          items: normalizeCollections(collectionsResult.data),
-        }
-      : createEmptySlice(createScopeGate("collection")),
+    bookmarks: {
+      error: null,
+      gatingMessage: null,
+      items: localLibrary.bookmarks.slice(0, LIST_PREVIEW_LIMIT),
+    },
+    collections: {
+      error: null,
+      gatingMessage: null,
+      items: localLibrary.collections.slice(0, LIST_PREVIEW_LIMIT),
+    },
     contentPreview,
     flashNotice,
     goals: {
-      data: normalizedGoals,
-      error: goalsResult.error,
-      gatingMessage: hasScope(currentScopes, "goal") ? null : createScopeGate("goal"),
+      data: localGoal,
+      error: null,
+      gatingMessage: null,
     },
     grantedScopes: currentScopes,
     idTokenSummary,
     isLoggedIn: true,
-    notes: hasScope(currentScopes, "note")
-      ? {
-          error: notesResult.error,
-          gatingMessage: null,
-          items: normalizeNotes(notesResult.data),
-        }
-      : createEmptySlice(createScopeGate("note")),
+    notes: {
+      error: null,
+      gatingMessage: null,
+      items: localLibrary.notes.slice(0, LIST_PREVIEW_LIMIT),
+    },
     preferences: {
       data: normalizedPreferences,
       error: preferencesResult.error,

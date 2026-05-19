@@ -85,7 +85,16 @@ export default function NiyyahHomeSection({
           });
           localStorage.removeItem("niyyah_pending_journey");
           if (created) {
-            setJourney(created);
+            setJourney({
+              ...pendingJourney,
+              id: created.id ?? pendingJourney.id,
+              completedDays: created.completedDays ?? pendingJourney.completedDays ?? [],
+              currentStreak: created.currentStreak ?? 0,
+              longestStreak: created.longestStreak ?? 0,
+              mercyDayUsed: created.mercyDayUsed ?? false,
+              lastMercyWeek: created.lastMercyWeek ?? null,
+              isComplete: created.isComplete ?? false,
+            });
             setHydrated(true);
             return;
           }
@@ -187,7 +196,27 @@ export default function NiyyahHomeSection({
     });
 
     if (created) {
-      setJourney(created);
+      // The API returns the raw DB row without completedDays — normalize it.
+      const normalized: Journey = {
+        v: 1,
+        id: created.id ?? j.id,
+        type: created.type ?? j.type,
+        recipientName: created.recipientName ?? j.recipientName,
+        occasion: created.occasion ?? j.occasion,
+        personalDua: created.personalDua ?? j.personalDua,
+        goalType: created.goalType ?? j.goalType,
+        goalValue: created.goalValue ?? j.goalValue,
+        startDate: created.startDate ?? j.startDate,
+        targetDate: created.targetDate ?? j.targetDate,
+        completedDays: created.completedDays ?? [],
+        currentStreak: created.currentStreak ?? 0,
+        longestStreak: created.longestStreak ?? 0,
+        mercyDayUsed: created.mercyDayUsed ?? false,
+        lastMercyWeek: created.lastMercyWeek ?? null,
+        isComplete: created.isComplete ?? false,
+        readerName: created.readerName ?? j.readerName,
+      };
+      setJourney(normalized);
       setSetupOpen(false);
     } else {
       alert('Failed to create journey. Please try again.');
@@ -329,7 +358,7 @@ export default function NiyyahHomeSection({
         </>
       ) : (
         <>
-          <DedicationHero journey={journey} daysCompleted={journey.completedDays.length} />
+          <DedicationHero journey={journey} daysCompleted={journey.completedDays?.length ?? 0} />
 
           <div className="grid gap-5 lg:grid-cols-[1.05fr_1fr] mb-2 max-w-6xl mx-auto">
             <ProgressVessel journey={journey} />

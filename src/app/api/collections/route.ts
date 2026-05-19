@@ -1,53 +1,51 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma as _prisma } from "@/db";
+import { requireUser, toCollectionItem } from "@/lib/local-store";
 
-import { ensureUserScope, normalizeMutationPayload, runUserAction } from "@/lib/data";
-import { getSession } from "@/lib/session";
-import { mutationError, withSessionJson } from "@/lib/route-helpers";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prisma = _prisma as any;
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
-  const sessionContext = await getSession(request);
-  const scopeCheck = ensureUserScope(sessionContext.session, "collection");
+export async function GET(req: NextRequest) {
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
 
-  if (!scopeCheck.ok) {
-    return mutationError(sessionContext, scopeCheck);
-  }
+  const rows = await prisma.collection.findMany({
+    where: { userId: auth.user.sub },
+    orderBy: { updatedAt: "desc" },
+    include: { _count: { select: { items: true } } },
+    take: 200,
+  });
 
-  const payload = (await request.json().catch(() => ({}))) as {
-    name?: string;
-  };
+  const items = rows.map((row: any) => ({
+    ...toCollectionItem(row),
+    itemCount: row._count.items,
+  }));
+
+  return NextResponse.json({ ok: true, items });
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await requireUser(req);
+  if (!auth.user) return auth.response;
+
+  const payload = (await req.json().catch(() => ({}))) as { name?: string };
   const name = String(payload.name ?? "").trim();
-
   if (!name) {
-    return mutationError(sessionContext, {
-      message: "Enter a collection name before saving.",
-      status: 400,
-    });
+    return NextResponse.json(
+      { ok: false, message: "Enter a collection name before saving." },
+      { status: 400 },
+    );
   }
 
-  const result = await runUserAction(sessionContext.session, (serverClient) =>
-    serverClient.auth.v1.collections.create({ name }),
-  );
+  const row = await prisma.collection.create({
+    data: { userId: auth.user.sub, name },
+  });
 
-  if (result.sessionExpired) {
-    return mutationError(sessionContext, {
-      message: result.error ?? "Session expired.",
-      signedOut: true,
-      status: 401,
-    });
-  }
-
-  if (result.error) {
-    return mutationError(sessionContext, {
-      message: result.error,
-      status: result.upstreamStatus ?? 400,
-    });
-  }
-
-  return withSessionJson(sessionContext, {
-    item: normalizeMutationPayload.collection(result.data),
-    message: "Collection created.",
+  return NextResponse.json({
     ok: true,
+    message: "Collection created.",
+    item: toCollectionItem(row),
   });
 }

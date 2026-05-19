@@ -56,12 +56,63 @@ export default function CompletionCeremony({
   const surahCount = surahsTouched(journey);
   const achievements = getAchievements(journey);
 
-  function handleShare() {
+  async function handleShare() {
+    const appUrl = typeof window !== "undefined" ? window.location.origin : "https://tadabbur.app";
     const message =
-      `A reading was completed in dedication to ${journey.recipientName} — ${journey.occasion}. ` +
-      `${journey.completedDays.length} days, ${verses} verses. May Allah accept it.`;
-    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    if (typeof window !== "undefined") window.open(url, "_blank", "noopener");
+      `A Qur'an reading was completed in dedication to ${journey.recipientName} — ${journey.occasion}. ` +
+      `${journey.completedDays?.length ?? 0} days, ${verses} verses. May Allah accept it.\n\n` +
+      `Start your own journey: ${appUrl}`;
+
+    // Try Web Share API first (supports image sharing on mobile)
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        // Generate the certificate image as a File for sharing
+        const { buildCertificateSvg } = await import("@/lib/niyyahCertificate");
+        const svg = buildCertificateSvg({ journey, completionDate });
+        const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+        const imgUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.src = imgUrl;
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        });
+        const canvas = document.createElement("canvas");
+        canvas.width = 1200;
+        canvas.height = 1600;
+        const ctx = canvas.getContext("2d");
+        let file: File | null = null;
+        if (ctx) {
+          ctx.fillStyle = "#0d1916";
+          ctx.fillRect(0, 0, 1200, 1600);
+          ctx.drawImage(img, 0, 0, 1200, 1600);
+          const pngBlob = await new Promise<Blob | null>((resolve) =>
+            canvas.toBlob((b) => resolve(b), "image/png"),
+          );
+          if (pngBlob) {
+            file = new File([pngBlob], `niyyah-gift-${journey.recipientName.replace(/[^a-z0-9]/gi, "-")}.png`, { type: "image/png" });
+          }
+        }
+        URL.revokeObjectURL(imgUrl);
+
+        const shareData: ShareData = {
+          title: `Niyyah Gift — ${journey.recipientName}`,
+          text: message,
+        };
+        if (file && navigator.canShare?.({ files: [file] })) {
+          shareData.files = [file];
+        }
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        // User cancelled or Web Share not fully supported — fall through to WhatsApp
+        if ((err as Error)?.name === "AbortError") return;
+      }
+    }
+
+    // Fallback: open WhatsApp with text + link
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    if (typeof window !== "undefined") window.open(waUrl, "_blank", "noopener");
   }
 
   function handlePrint() {
@@ -73,6 +124,43 @@ export default function CompletionCeremony({
     setDownloading(true);
     try {
       await downloadCertificate({ journey, completionDate });
+      // Persist the rendered image to the server for later re-download.
+      try {
+        const { buildCertificateSvg } = await import("@/lib/niyyahCertificate");
+        const svg = buildCertificateSvg({ journey, completionDate });
+        // Render to PNG in a canvas and upload.
+        const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.src = url;
+        await new Promise<void>((resolve) => { img.onload = () => resolve(); img.onerror = () => resolve(); });
+        const canvas = document.createElement("canvas");
+        canvas.width = 1200;
+        canvas.height = 1600;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#0d1916";
+          ctx.fillRect(0, 0, 1200, 1600);
+          ctx.drawImage(img, 0, 0, 1200, 1600);
+          const dataUrl = canvas.toDataURL("image/png");
+          const base64 = dataUrl.split(",")[1];
+          if (base64) {
+            fetch("/api/niyyah/gift", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                journeyId: journey.id,
+                imageBase64: base64,
+                recipientName: journey.recipientName,
+              }),
+            }).catch(() => {});
+          }
+        }
+        URL.revokeObjectURL(url);
+      } catch {
+        // Non-critical — the user already got the download.
+      }
     } finally {
       setDownloading(false);
     }
