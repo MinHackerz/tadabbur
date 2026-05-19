@@ -110,11 +110,15 @@ const createAuthenticatedFetch = (session: StoredSession, config: ReturnType<typ
       "Content-Type": "application/json",
     };
 
-    // Use x-auth-token and x-client-id as per Quran Foundation docs
+    // Use x-auth-token and x-client-id (Quran Foundation API gateway auth)
+    // AND Authorization: Bearer (used by /userinfo per OIDC spec).
+    // Sending both is harmless and lets one fetch helper serve all endpoints.
     const userSession = session.userSession as Record<string, unknown> | null;
     if (userSession?.accessToken || userSession?.access_token) {
-      headers["x-auth-token"] = String(userSession.accessToken ?? userSession.access_token);
+      const token = String(userSession.accessToken ?? userSession.access_token);
+      headers["x-auth-token"] = token;
       headers["x-client-id"] = config.clientId;
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     const response = await fetch(url, {
@@ -425,7 +429,9 @@ const createCustomServerClient = (session: StoredSession, config: ReturnType<typ
           return normalized;
         },
         getUserInfo: async () => {
-          const userInfoUrl = `${oauth2Url}/oauth2/userinfo`;
+          // QF userinfo endpoint is at /userinfo, not /oauth2/userinfo
+          // See: https://api-docs.quran.com/docs/oauth2_apis_versioned/get-oidc-user-info
+          const userInfoUrl = `${oauth2Url}/userinfo`;
           return authFetch(userInfoUrl);
         },
         refresh: async () => {
