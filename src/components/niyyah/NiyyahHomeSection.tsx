@@ -62,6 +62,8 @@ export default function NiyyahHomeSection({
       
       if (pendingRaw && isLoggedIn) {
         // User just signed in after creating a journey — save it to the database
+        // Small delay to ensure session cookie is fully established
+        await new Promise(resolve => setTimeout(resolve, 500));
         try {
           const pendingJourney = JSON.parse(pendingRaw) as Journey;
           const created = await apiCreateJourney({
@@ -81,8 +83,9 @@ export default function NiyyahHomeSection({
             setHydrated(true);
             return;
           }
-        } catch {
-          localStorage.removeItem("niyyah_pending_journey");
+        } catch (err) {
+          // If it fails, keep the pending journey for next page load
+          console.error("Failed to save pending journey:", err);
         }
       }
 

@@ -32,6 +32,15 @@ export async function getUserFromSession(req: NextRequest): Promise<User | null>
       sub = claims?.sub as string | undefined;
     }
   }
+
+  // If still not found, try decoding from the accessToken
+  if (!sub) {
+    const accessToken = session.accessToken ?? session.access_token;
+    if (typeof accessToken === 'string') {
+      const claims = decodeJwt(accessToken);
+      sub = (claims?.sub ?? claims?.client_id) as string | undefined;
+    }
+  }
   
   if (typeof sub !== 'string' || !sub) {
     return null;
@@ -40,6 +49,5 @@ export async function getUserFromSession(req: NextRequest): Promise<User | null>
   return {
     sub,
     email: session.email as string | undefined,
-    ...session,
   } as User;
 }
