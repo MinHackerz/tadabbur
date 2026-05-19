@@ -13,6 +13,7 @@ import VerseInsightPanel from "./VerseInsightPanel";
 import type { InsightTab } from "./insightTypes";
 import { useReaderAudio } from "./useReaderAudio";
 import { useReaderScrollCompact } from "./useReaderScrollCompact";
+import { useReadingTracker } from "./useReadingTracker";
 import { FONT_SIZE_MAP } from "./fontSizes";
 import { READER_MODE_TABS } from "./readerModeTabs";
 import { RECITERS, TRANSLATIONS } from "./readerSession";
@@ -105,6 +106,7 @@ export default function ReaderView({
   const fontClasses = FONT_SIZE_MAP[fontSize] ?? FONT_SIZE_MAP[3];
   const cid = rData?.chapter.id ?? (parseInt(chapterId, 10) || 1);
   const readerAudio = useReaderAudio(setActiveVerse);
+  const tracker = useReadingTracker(cid, isLoggedIn);
 
   useEffect(() => {
     readerAudio.stop();
@@ -340,6 +342,7 @@ export default function ReaderView({
                   onPlay={() =>
                     v.audioUrl && readerAudio.toggleVerse(v.audioUrl, v.verseNumber ?? 0)
                   }
+                  onObserve={tracker.observeVerse}
                   onOpenInsights={(tab) => {
                     const initialTab = tab ?? "tafsir";
                     openInsights({
@@ -372,6 +375,42 @@ export default function ReaderView({
             </div>
           )}
           </div>
+
+          {/* Reading tracker HUD — only shown when logged in and something has been read */}
+          {isLoggedIn && tracker.versesRead > 0 && (
+            <div
+              className="fixed bottom-[4.5rem] md:bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+              aria-live="polite"
+              aria-label="Reading progress"
+            >
+              <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-ink/90 text-white text-[12px] font-semibold shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-sm border border-white/10">
+                <span className="flex items-center gap-1.5">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={13} height={13} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                  </svg>
+                  {tracker.versesRead} verse{tracker.versesRead !== 1 ? "s" : ""}
+                </span>
+                <span className="w-px h-3 bg-white/25" aria-hidden />
+                <span className="flex items-center gap-1.5">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={13} height={13} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  {tracker.minutesRead} min
+                </span>
+                {tracker.pagesRead > 0 && (
+                  <>
+                    <span className="w-px h-3 bg-white/25" aria-hidden />
+                    <span className="flex items-center gap-1.5">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={13} height={13} aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                      </svg>
+                      {tracker.pagesRead}p
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           <ReaderAudioDock
             verses={rData.verses}

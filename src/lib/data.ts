@@ -116,6 +116,15 @@ const toArray = (value: unknown, keys: string[] = []): JsonObject[] => {
 
 const formatError = (error: unknown): string => String((error as Error)?.message ?? error);
 
+/** Extract the HTTP status code attached to an SDK error, if present. */
+const errorStatus = (error: unknown): number | null => {
+  if (error && typeof error === "object" && "status" in error) {
+    const s = (error as { status: unknown }).status;
+    if (typeof s === "number" && s >= 400 && s < 600) return s;
+  }
+  return null;
+};
+
 const formatTimestamp = (value: unknown): string | null => {
   if (!value) {
     return null;
@@ -1110,7 +1119,7 @@ export const loadBootstrapData = async (
 export const runUserAction = async <T>(
   session: StoredSession,
   action: (serverClient: import("@/lib/sdk").ServerClient) => Promise<T>,
-): Promise<{ data: T | null; error: string | null; sessionExpired: boolean }> => {
+): Promise<{ data: T | null; error: string | null; sessionExpired: boolean; upstreamStatus: number | null }> => {
   const initialUserSession = session.userSession;
   const { serverClient } = await createClients(session);
 
@@ -1119,6 +1128,7 @@ export const runUserAction = async <T>(
       data: await action(serverClient),
       error: null,
       sessionExpired: false,
+      upstreamStatus: null,
     };
   } catch (error) {
     if (didSdkClearSession(initialUserSession, session)) {
@@ -1126,6 +1136,7 @@ export const runUserAction = async <T>(
         data: null,
         error: SESSION_EXPIRED_MESSAGE,
         sessionExpired: true,
+        upstreamStatus: null,
       };
     }
 
@@ -1133,6 +1144,7 @@ export const runUserAction = async <T>(
       data: null,
       error: formatError(error),
       sessionExpired: false,
+      upstreamStatus: errorStatus(error),
     };
   }
 };
@@ -1684,7 +1696,19 @@ export const parseVerseKey = (value: unknown): string | null => {
 };
 
 export const normalizeMutationPayload = {
-  bookmark: normalizeBookmarkItem,
+  /**
+   * The QF create-bookmark endpoint wraps the result in a `bookmark` or `data`
+   * envelope. Unwrap before normalizing so the returned item always has a real id.
+   */
+  bookmark: (raw: unknown): BookmarkItem => {
+    const envelope = asObject(raw);
+    // Try common envelope keys; fall back to the raw object itself
+    const inner =
+      asNullableObject(envelope.bookmark) ??
+      asNullableObject(envelope.data) ??
+      envelope;
+    return normalizeBookmarkItem(inner);
+  },
   collection: normalizeCollectionItem,
   note: normalizeNoteItem,
 };

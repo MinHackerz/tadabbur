@@ -123,7 +123,43 @@ const createAuthenticatedFetch = (session: StoredSession, config: ReturnType<typ
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      // Read the response body so callers can surface the upstream validation
+      // message (e.g. a 422 with field-level errors) rather than a generic string.
+      let detail = "";
+      try {
+        const ct = response.headers.get("content-type") ?? "";
+        if (ct.includes("application/json")) {
+          const body = await response.json() as Record<string, unknown>;
+          // Common shapes: { message }, { error }, { errors: [...] }
+          const msg =
+            body.message ??
+            body.error ??
+            (Array.isArray(body.errors)
+              ? (body.errors as unknown[])
+                  .map((e) =>
+                    typeof e === "string"
+                      ? e
+                      : String((e as Record<string, unknown>).message ?? JSON.stringify(e)),
+                  )
+                  .join("; ")
+              : null);
+          if (msg) {
+            detail = ` — ${String(msg)}`;
+          } else {
+            detail = ` — ${JSON.stringify(body)}`;
+          }
+        } else {
+          const text = await response.text();
+          if (text.trim()) detail = ` — ${text.trim().slice(0, 300)}`;
+        }
+      } catch {
+        // ignore body-read errors; fall through to the generic message
+      }
+      const err = new Error(
+        `API request failed: ${response.status} ${response.statusText}${detail}`,
+      ) as Error & { status: number };
+      err.status = response.status;
+      throw err;
     }
 
     return response.json();
