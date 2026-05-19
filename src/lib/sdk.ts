@@ -492,7 +492,7 @@ const createCustomPublicClient = (config: ReturnType<typeof getConfig>): PublicC
               query.set(key, String(value));
             }
           });
-          return `${oauth2Url}/oauth2/authorize?${query}`;
+          return `${oauth2Url}/oauth2/auth?${query}`;
         },
       },
     },
