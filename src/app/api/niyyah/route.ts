@@ -47,8 +47,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    if (process.env.NODE_ENV === "development") console.error(error);
-    return NextResponse.json({ error: "Failed to fetch journey" }, { status: 500 });
+    console.error("[/api/niyyah GET]", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: "Failed to fetch journey", detail: msg }, { status: 500 });
   }
 }
 

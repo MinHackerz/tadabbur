@@ -22,10 +22,13 @@ export async function fetchJourney(): Promise<Journey | null> {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // User not authenticated
         return null;
       }
-      throw new Error(`Failed to fetch journey: ${response.statusText}`);
+      // Read the body so we can log the real server error
+      const body = await response.json().catch(() => ({})) as { error?: string; detail?: string };
+      const msg = body.detail ?? body.error ?? response.statusText;
+      console.error('[fetchJourney] server error:', response.status, msg);
+      throw new Error(`Failed to fetch journey: ${msg}`);
     }
 
     const data = await response.json();
