@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getSession } from '@/lib/session';
+import { decodeJwt } from '@/lib/oauth';
 
 export interface User {
   sub: string;
@@ -18,7 +19,19 @@ export async function getUserFromSession(req: NextRequest): Promise<User | null>
     return null;
   }
   
-  const sub = (userSession as Record<string, unknown>).sub;
+  const session = userSession as Record<string, unknown>;
+  
+  // Try to get sub directly from session (if stored by SDK)
+  let sub = session.sub as string | undefined;
+  
+  // If not found, decode it from the idToken
+  if (!sub) {
+    const idToken = session.idToken ?? session.id_token;
+    if (typeof idToken === 'string') {
+      const claims = decodeJwt(idToken);
+      sub = claims?.sub as string | undefined;
+    }
+  }
   
   if (typeof sub !== 'string' || !sub) {
     return null;
@@ -26,6 +39,7 @@ export async function getUserFromSession(req: NextRequest): Promise<User | null>
   
   return {
     sub,
-    ...(userSession as Record<string, unknown>),
+    email: session.email as string | undefined,
+    ...session,
   } as User;
 }

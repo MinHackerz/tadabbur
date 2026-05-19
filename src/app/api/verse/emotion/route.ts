@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Fetch all verses in parallel
-  const contentBase = config.services?.contentBaseUrl ?? "https://apis-prelive.quran.foundation/content";
+  const contentBase = config.services?.contentBaseUrl ?? "https://apis.quran.foundation/content";
   const oauth2Base = config.services?.oauth2BaseUrl ?? config.oauth2BaseUrl;
   
   try {
@@ -228,10 +228,10 @@ export async function GET(request: NextRequest) {
 
     const fetchedVerses = (await Promise.all(versePromises)).filter((v): v is NonNullable<typeof v> => v !== null && v.arabicText !== null && v.translationText !== null);
     
-    // Return whatever verses we successfully fetched (aim for at least 2, but don't fail if we get 1)
-    if (fetchedVerses.length > 0) {
+    // Return exactly 2 verses
+    if (fetchedVerses.length >= 2) {
       const result: EmotionVerseResult = {
-        verses: fetchedVerses,
+        verses: fetchedVerses.slice(0, 2),
         error: null,
       };
       return withSessionJson(sessionContext, result);
@@ -243,9 +243,8 @@ export async function GET(request: NextRequest) {
   // Fallback: if API fails completely, return the static verse pool keys
   // This ensures users always see something
   return withSessionJson(sessionContext, {
-    verses: pickedKeys.slice(0, 3).map((key) => {
+    verses: pickedKeys.slice(0, 2).map((key) => {
       const [surahIdStr, verseNumberStr] = key.split(":");
-      // Return with placeholder text that will be filtered out in UI
       return {
         verseKey: key,
         surahId: Number(surahIdStr),

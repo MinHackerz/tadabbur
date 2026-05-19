@@ -57,7 +57,36 @@ export default function NiyyahHomeSection({
 
   useEffect(() => {
     async function loadData() {
-      // Check for localStorage data first (migration)
+      // Check for a pending journey that was created before sign-in
+      const pendingRaw = localStorage.getItem("niyyah_pending_journey");
+      
+      if (pendingRaw && isLoggedIn) {
+        // User just signed in after creating a journey — save it to the database
+        try {
+          const pendingJourney = JSON.parse(pendingRaw) as Journey;
+          const created = await apiCreateJourney({
+            type: pendingJourney.type,
+            recipientName: pendingJourney.recipientName,
+            occasion: pendingJourney.occasion,
+            personalDua: pendingJourney.personalDua,
+            goalType: pendingJourney.goalType,
+            goalValue: pendingJourney.goalValue,
+            readerName: pendingJourney.readerName,
+            startDate: pendingJourney.startDate,
+            targetDate: pendingJourney.targetDate,
+          });
+          localStorage.removeItem("niyyah_pending_journey");
+          if (created) {
+            setJourney(created);
+            setHydrated(true);
+            return;
+          }
+        } catch {
+          localStorage.removeItem("niyyah_pending_journey");
+        }
+      }
+
+      // Check for localStorage data (migration path)
       const localJourney = loadJourneyFromLocalStorage();
       
       if (localJourney && isLoggedIn) {
@@ -69,7 +98,6 @@ export default function NiyyahHomeSection({
           const dbJourney = await fetchJourney();
           setJourney(dbJourney);
         } else {
-          // Migration failed, keep using localStorage temporarily
           setJourney(localJourney);
         }
         setMigrating(false);
@@ -92,7 +120,12 @@ export default function NiyyahHomeSection({
     setJourney(next);
     
     if (!isLoggedIn) {
-      // Not logged in - show message or handle gracefully
+      // Save to localStorage for later migration after sign-in
+      if (next) {
+        localStorage.setItem("niyyah_journey", JSON.stringify(next));
+      } else {
+        localStorage.removeItem("niyyah_journey");
+      }
       return;
     }
 
@@ -124,8 +157,10 @@ export default function NiyyahHomeSection({
 
   async function handleSeal(j: Journey) {
     if (!isLoggedIn) {
-      // Show login prompt
-      alert('Please sign in to save your journey');
+      // Save journey data to localStorage so it persists through the sign-in redirect
+      localStorage.setItem("niyyah_pending_journey", JSON.stringify(j));
+      // Redirect to sign in — after auth, the useEffect will pick up the pending journey
+      window.location.href = "/api/auth/start";
       return;
     }
 
@@ -152,12 +187,24 @@ export default function NiyyahHomeSection({
 
   function handleBegin() {
     if (!journey) return;
+    if (!isLoggedIn) {
+      // Save journey to localStorage and redirect to sign in
+      localStorage.setItem("niyyah_pending_journey", JSON.stringify(journey));
+      window.location.href = "/api/auth/start";
+      return;
+    }
     const p = getTodayPortion(journey);
     onOpenReader(p.start.surahId, `verse-${p.start.verseNumber}`);
   }
 
   async function handleMarkRead() {
-    if (!journey || !isLoggedIn) return;
+    if (!journey) return;
+    if (!isLoggedIn) {
+      // Save journey to localStorage and redirect to sign in
+      localStorage.setItem("niyyah_pending_journey", JSON.stringify(journey));
+      window.location.href = "/api/auth/start";
+      return;
+    }
     
     const p = getTodayPortion(journey);
     const next = markTodayComplete(journey, p);
@@ -175,7 +222,14 @@ export default function NiyyahHomeSection({
   }
 
   async function handleResetJourney() {
-    if (!isLoggedIn || !journey) return;
+    if (!journey) return;
+    if (!isLoggedIn) {
+      // Just clear localStorage
+      localStorage.removeItem("niyyah_journey");
+      localStorage.removeItem("niyyah_pending_journey");
+      setJourney(null);
+      return;
+    }
     
     const confirmed = confirm('Are you sure you want to end this journey? This cannot be undone.');
     if (confirmed) {
@@ -199,18 +253,6 @@ export default function NiyyahHomeSection({
             <p className="text-ny-sage text-sm">Syncing your journey to the cloud...</p>
           )}
         </div>
-      ) : !isLoggedIn ? (
-        <>
-          <div className="max-w-2xl mx-auto text-center py-12 px-4">
-            <p className="text-ny-ink text-lg mb-4">
-              Sign in to begin your Niyyah journey
-            </p>
-            <p className="text-ny-sage text-sm">
-              Your reading progress will be saved securely and synced across all your devices.
-            </p>
-          </div>
-          <EmptyHero />
-        </>
       ) : !journey ? (
         <>
           <EmptyHero />

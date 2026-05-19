@@ -61,6 +61,14 @@ interface ServerContentClient {
     };
     verses: {
       byChapter: (chapterId: string, params: UnknownRecord) => Promise<unknown>;
+      byKey: (key: string, query?: UnknownRecord) => Promise<unknown>;
+    };
+    hadithReferences: {
+      byAyah: (key: string) => Promise<unknown>;
+      hadithsByAyah: (key: string, query?: UnknownRecord) => Promise<unknown>;
+    };
+    raw: {
+      [operation: string]: (params: { path: Record<string, string>; query?: Record<string, unknown> }) => Promise<unknown>;
     };
   };
 }
@@ -95,163 +103,417 @@ export interface ServerClient {
   search: ServerSearchClient;
 }
 
-interface RuntimeSplitSdk {
-  createPublicClient: (options: UnknownRecord) => PublicClient;
-  createServerClient: (options: UnknownRecord) => ServerClient;
-}
-
-const dynamicImport = new Function(
-  "modulePath",
-  "return import(modulePath)",
-) as (modulePath: string) => Promise<Record<string, unknown>>;
-
-let cachedSdk: RuntimeSplitSdk | null = null;
-
-const loadRuntimeSplitSdk = async (): Promise<RuntimeSplitSdk> => {
-  if (cachedSdk) {
-    return cachedSdk;
-  }
-
-  try {
-    // Try runtime-split imports first
-    const publicModule = await dynamicImport("@quranjs/api/public");
-    const serverModule = await dynamicImport("@quranjs/api/server");
-    const createPublicClient = publicModule.createPublicClient;
-    const createServerClient = serverModule.createServerClient;
-
-    if (typeof createPublicClient !== "function") {
-      throw new Error("createPublicClient is not available.");
-    }
-
-    if (typeof createServerClient !== "function") {
-      throw new Error("createServerClient is not available.");
-    }
-
-    cachedSdk = {
-      createPublicClient: createPublicClient as (
-        options: UnknownRecord,
-      ) => PublicClient,
-      createServerClient: createServerClient as (
-        options: UnknownRecord,
-      ) => ServerClient,
+// Helper to make authenticated API requests
+const createAuthenticatedFetch = (session: StoredSession, config: ReturnType<typeof getConfig>) => {
+  return async (url: string, options: RequestInit = {}) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
     };
 
-    return cachedSdk;
-  } catch (_error) {
-    // Fallback to standard import if runtime-split is not available
-    try {
-      const mainModule = await dynamicImport("@quranjs/api");
-      const createPublicClient = mainModule.createPublicClient;
-      const createServerClient = mainModule.createServerClient;
-
-      if (typeof createPublicClient !== "function" || typeof createServerClient !== "function") {
-        throw new Error("SDK functions not available in main module.");
-      }
-
-      cachedSdk = {
-        createPublicClient: createPublicClient as (
-          options: UnknownRecord,
-        ) => PublicClient,
-        createServerClient: createServerClient as (
-          options: UnknownRecord,
-        ) => ServerClient,
-      };
-
-      return cachedSdk;
-    } catch (fallbackError) {
-      throw new Error(
-        "The installed @quranjs/api package does not expose the required client creation functions. Install a local SDK build with `npm run sdk:local -- /path/to/api-js/packages/api`, or install a published runtime-split release.",
-      );
+    // Add authorization header if we have an access token
+    const userSession = session.userSession as Record<string, unknown> | null;
+    if (userSession?.accessToken || userSession?.access_token) {
+      headers["Authorization"] = `Bearer ${userSession.accessToken ?? userSession.access_token}`;
     }
-  }
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  };
 };
 
-const createLiveSafeFetch = (fetchImpl: typeof fetch) => async (url: string, options?: RequestInit) => {
-  const requestUrl = new URL(String(url));
+// App token cache for client_credentials grant (used for content API)
+let _appToken: { value: string; expiresAt: number } | null = null;
 
-  if (requestUrl.pathname.endsWith("/v1/collections")) {
-    const sortBy = requestUrl.searchParams.get("sort_by");
-
-    if (sortBy) {
-      requestUrl.searchParams.delete("sort_by");
-      requestUrl.searchParams.set("sortBy", sortBy);
-    }
+const getAppToken = async (clientId: string, clientSecret: string, oauth2BaseUrl: string): Promise<string> => {
+  if (_appToken && _appToken.expiresAt > Date.now() + 30_000) {
+    return _appToken.value;
   }
-
-  if (requestUrl.pathname.endsWith("/v1/bookmarks")) {
-    const mushafId = requestUrl.searchParams.get("mushaf_id");
-
-    if (mushafId) {
-      requestUrl.searchParams.delete("mushaf_id");
-      requestUrl.searchParams.set("mushafId", mushafId);
-    }
-  }
-
-  return fetchImpl(requestUrl.toString(), options);
+  const resp = await fetch(`${oauth2BaseUrl}/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: "Basic " + Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
+    },
+    body: "grant_type=client_credentials&scope=content",
+  });
+  if (!resp.ok) throw new Error(`App token request failed: ${resp.status}`);
+  const j = await resp.json() as { access_token: string; expires_in: number };
+  _appToken = { value: j.access_token, expiresAt: Date.now() + j.expires_in * 1000 };
+  return _appToken.value;
 };
 
-interface SessionStorageAdapter {
-  clearSession: () => void;
-  getSession: () => Record<string, unknown> | null;
-  setSession: (userSession: Record<string, unknown> | null) => void;
-}
+// Authenticated fetch for content API (uses app token + x-client-id header)
+const createContentFetch = (config: ReturnType<typeof getConfig>) => {
+  return async (url: string): Promise<unknown> => {
+    const token = await getAppToken(config.clientId, config.clientSecret, config.oauth2BaseUrl);
+    const response = await fetch(url, {
+      headers: {
+        "x-auth-token": token,
+        "x-client-id": config.clientId,
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok) throw new Error(`Content API request failed: ${response.status}`);
+    return response.json();
+  };
+};
 
-const createSessionStorageAdapter = (session: StoredSession): SessionStorageAdapter => ({
-  clearSession: () => {
-    session.userSession = null;
-    session.oidcLogoutIdTokenHint = null;
-  },
-  getSession: () => session.userSession ?? null,
-  setSession: (userSession) => {
-    session.userSession = userSession;
+// Create a custom client implementation
+const createCustomServerClient = (session: StoredSession, config: ReturnType<typeof getConfig>): ServerClient => {
+  const authFetch = createAuthenticatedFetch(session, config);
+  const contentFetch = createContentFetch(config);
+  const gatewayUrl = config.services?.gatewayUrl ?? config.services?.authBaseUrl ?? "https://apis.quran.foundation";
+  const contentUrl = config.services?.contentBaseUrl ?? "https://apis.quran.foundation/content";
+  const oauth2Url = config.services?.oauth2BaseUrl ?? config.oauth2BaseUrl;
+  const quranReflectUrl = config.services?.quranReflectBaseUrl ?? "https://quranreflect.com";
 
-    if (!userSession) {
-      session.oidcLogoutIdTokenHint = null;
-      return;
+  // Helper to build content API URLs
+  const buildContentUrl = (path: string) => {
+    // If contentUrl already ends with /api/v4, don't add it again
+    if (contentUrl.includes('/api/v4')) {
+      return `${contentUrl}${path}`;
     }
-
-    const idToken = userSession.idToken;
-    if (typeof idToken === "string" && idToken) {
-      session.oidcLogoutIdTokenHint = idToken;
+    // If it ends with /content, add /api/v4
+    if (contentUrl.endsWith('/content')) {
+      return `${contentUrl}/api/v4${path}`;
     }
-  },
-});
-
-export const createClients = async (session: StoredSession) => {
-  const config = getConfig();
-  const runtimeSdk = await loadRuntimeSplitSdk();
-
-  const sharedConfig = {
-    clientId: config.clientId,
-    fetch: createLiveSafeFetch(globalThis.fetch),
-    services: config.services,
-    storage: createSessionStorageAdapter(session),
-    userSession: session.userSession ?? null,
+    // Otherwise assume it's a base URL
+    return `${contentUrl}/v4${path}`;
   };
 
   return {
-    publicClient: runtimeSdk.createPublicClient({
-      ...sharedConfig,
-      clientType: "confidential-proxy",
-    }),
-    serverClient: runtimeSdk.createServerClient({
-      ...sharedConfig,
-      clientSecret: config.clientSecret,
-    }),
+    auth: {
+      v1: {
+        bookmarks: {
+          create: async (payload) => authFetch(`${gatewayUrl}/auth/v1/bookmarks`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          }),
+          list: async (params) => {
+            const query = new URLSearchParams();
+            if (params.first) query.set("first", String(params.first));
+            if (params.mushafId) query.set("mushafId", String(params.mushafId));
+            if (params.type) query.set("type", String(params.type));
+            return authFetch(`${gatewayUrl}/auth/v1/bookmarks?${query}`);
+          },
+          remove: async (bookmarkId) => authFetch(`${gatewayUrl}/auth/v1/bookmarks/${bookmarkId}`, {
+            method: "DELETE",
+          }),
+        },
+        collections: {
+          create: async (payload) => authFetch(`${gatewayUrl}/auth/v1/collections`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          }),
+          list: async (params) => {
+            const query = new URLSearchParams();
+            if (params.first) query.set("first", String(params.first));
+            if (params.sortBy) query.set("sortBy", String(params.sortBy));
+            return authFetch(`${gatewayUrl}/auth/v1/collections?${query}`);
+          },
+          remove: async (collectionId) => authFetch(`${gatewayUrl}/auth/v1/collections/${collectionId}`, {
+            method: "DELETE",
+          }),
+        },
+        goals: {
+          create: async (payload) => authFetch(`${gatewayUrl}/auth/v1/goals`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          }),
+          getTodaysPlan: async () => authFetch(`${gatewayUrl}/auth/v1/goals/today`),
+          remove: async (goalId) => authFetch(`${gatewayUrl}/auth/v1/goals/${goalId}`, {
+            method: "DELETE",
+          }),
+          update: async (goalId, payload) => authFetch(`${gatewayUrl}/auth/v1/goals/${goalId}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          }),
+        },
+        notes: {
+          create: async (payload) => authFetch(`${gatewayUrl}/auth/v1/notes`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          }),
+          list: async () => authFetch(`${gatewayUrl}/auth/v1/notes`),
+          remove: async (noteId) => authFetch(`${gatewayUrl}/auth/v1/notes/${noteId}`, {
+            method: "DELETE",
+          }),
+        },
+        preferences: {
+          get: async () => authFetch(`${gatewayUrl}/auth/v1/preferences`),
+          update: async (payload) => authFetch(`${gatewayUrl}/auth/v1/preferences`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          }),
+        },
+      },
+    },
+    content: {
+      v4: {
+        chapters: {
+          get: async (chapterId) => {
+            return contentFetch(buildContentUrl(`/chapters/${chapterId}`));
+          },
+          list: async () => {
+            return contentFetch(buildContentUrl(`/chapters`));
+          },
+        },
+        verses: {
+          byChapter: async (chapterId, params) => {
+            const query = new URLSearchParams();
+            if (params.page) query.set("page", String(params.page));
+            if (params.perPage) query.set("per_page", String(params.perPage));
+            if (params.translations && Array.isArray(params.translations)) {
+              query.set("translations", params.translations.join(","));
+            }
+            if (params.audio) query.set("audio", String(params.audio));
+            if (params.words === false) query.set("words", "false");
+            if (params.fields && typeof params.fields === 'object') {
+              const fieldsObj = params.fields as Record<string, unknown>;
+              if (fieldsObj.textUthmani) query.set("fields", "text_uthmani");
+            }
+            return contentFetch(buildContentUrl(`/verses/by_chapter/${chapterId}?${query}`));
+          },
+          byKey: async (key, query) => {
+            const queryParams = new URLSearchParams();
+            if (query?.translations) {
+              const trValue = Array.isArray(query.translations) ? query.translations.join(",") : String(query.translations);
+              queryParams.set("translations", trValue);
+            }
+            if (query?.tafsirs) {
+              const tafsirValue = Array.isArray(query.tafsirs) ? query.tafsirs.join(",") : String(query.tafsirs);
+              queryParams.set("tafsirs", tafsirValue);
+            }
+            if (query?.words !== undefined) queryParams.set("words", String(query.words));
+            if (query?.fields) queryParams.set("fields", String(query.fields));
+            return contentFetch(buildContentUrl(`/verses/by_key/${key}?${queryParams}`));
+          },
+        },
+        hadithReferences: {
+          byAyah: async (key) => {
+            return contentFetch(buildContentUrl(`/hadith_references/by_ayah/${key}`));
+          },
+          hadithsByAyah: async (key, query) => {
+            const queryParams = new URLSearchParams();
+            if (query?.page) queryParams.set("page", String(query.page));
+            if (query?.per_page) queryParams.set("per_page", String(query.per_page));
+            if (query?.limit) queryParams.set("per_page", String(query.limit));
+            return contentFetch(buildContentUrl(`/hadith_references/hadiths_by_ayah/${key}?${queryParams}`));
+          },
+        },
+        raw: {
+          listSurahTranslations: async ({ path, query }) => {
+            const queryParams = new URLSearchParams();
+            if (query?.page) queryParams.set("page", String(query.page));
+            if (query?.per_page) queryParams.set("per_page", String(query.per_page));
+            return contentFetch(buildContentUrl(`/translations/${path.resource_id}/by_chapter/${path.chapter_number}?${queryParams}`));
+          },
+          listAyahTranslations: async ({ path, query }) => {
+            const queryParams = new URLSearchParams();
+            if (query?.per_page) queryParams.set("per_page", String(query.per_page));
+            return contentFetch(buildContentUrl(`/translations/${path.resource_id}/by_ayah/${path.ayah_key}?${queryParams}`));
+          },
+          getAyahTafsir: async ({ path, query }) => {
+            const queryParams = new URLSearchParams();
+            if (query?.words) queryParams.set("words", String(query.words));
+            return contentFetch(buildContentUrl(`/tafsirs/${path.tafsir_id}/by_ayah/${path.ayah_key}?${queryParams}`));
+          },
+          getHadithByAyah: async ({ path }) => {
+            return contentFetch(buildContentUrl(`/hadith_references/by_ayah/${path.ayah_key}`));
+          },
+          getHadithsByAyah: async ({ path, query }) => {
+            const queryParams = new URLSearchParams();
+            if (query?.page) queryParams.set("page", String(query.page));
+            if (query?.per_page) queryParams.set("per_page", String(query.per_page));
+            return contentFetch(buildContentUrl(`/hadith_references/hadiths_by_ayah/${path.ayah_key}?${queryParams}`));
+          },
+          getVerseByKey: async ({ path, query }) => {
+            const queryParams = new URLSearchParams();
+            if (query?.translations) queryParams.set("translations", String(query.translations));
+            if (query?.words) queryParams.set("words", String(query.words));
+            return contentFetch(buildContentUrl(`/verses/by_key/${path.verse_key}?${queryParams}`));
+          },
+        },
+      },
+    },
+    oauth2: {
+      v1: {
+        exchangeCode: async (params) => {
+          const body = new URLSearchParams({
+            grant_type: "authorization_code",
+            code: params.code,
+            code_verifier: params.codeVerifier,
+            redirect_uri: params.redirectUri,
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+          });
+
+          const tokenUrl = oauth2Url.includes('/oauth2/') || oauth2Url.includes('/v1/') 
+            ? `${oauth2Url}/token`.replace('/v1/token', '/token').replace('//token', '/token')
+            : `${oauth2Url}/v1/token`;
+
+          const response = await fetch(tokenUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body.toString(),
+          });
+
+          if (!response.ok) throw new Error(`Token exchange failed: ${response.status}`);
+          const data = await response.json();
+          
+          // Normalize token response to camelCase for compatibility
+          const normalized: Record<string, unknown> = {
+            ...data,
+            accessToken: data.access_token ?? data.accessToken,
+            refreshToken: data.refresh_token ?? data.refreshToken,
+            idToken: data.id_token ?? data.idToken,
+            expiresAt: data.expires_at ?? (data.expires_in ? Date.now() + data.expires_in * 1000 : null),
+            scope: data.scope,
+            tokenType: data.token_type ?? data.tokenType,
+          };
+
+          // Update session with normalized tokens
+          session.userSession = normalized;
+          if (normalized.idToken && typeof normalized.idToken === "string") {
+            session.oidcLogoutIdTokenHint = normalized.idToken;
+          }
+          
+          return normalized;
+        },
+        getUserInfo: async () => {
+          const userInfoUrl = oauth2Url.includes('/v1/') 
+            ? `${oauth2Url}/userinfo`
+            : `${oauth2Url}/v1/userinfo`;
+          return authFetch(userInfoUrl);
+        },
+        refresh: async () => {
+          const userSession = session.userSession as Record<string, unknown> | null;
+          if (!userSession?.refreshToken && !userSession?.refresh_token) {
+            throw new Error("No refresh token available");
+          }
+
+          const body = new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: String(userSession.refreshToken ?? userSession.refresh_token),
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+          });
+
+          const tokenUrl = oauth2Url.includes('/oauth2/') || oauth2Url.includes('/v1/') 
+            ? `${oauth2Url}/token`.replace('/v1/token', '/token').replace('//token', '/token')
+            : `${oauth2Url}/v1/token`;
+
+          const response = await fetch(tokenUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body.toString(),
+          });
+
+          if (!response.ok) {
+            // Clear session on refresh failure
+            session.userSession = null;
+            session.oidcLogoutIdTokenHint = null;
+            throw new Error(`Token refresh failed: ${response.status}`);
+          }
+
+          const data = await response.json();
+          
+          // Normalize token response to camelCase
+          const normalized: Record<string, unknown> = {
+            ...data,
+            accessToken: data.access_token ?? data.accessToken,
+            refreshToken: data.refresh_token ?? data.refreshToken,
+            idToken: data.id_token ?? data.idToken,
+            expiresAt: data.expires_at ?? (data.expires_in ? Date.now() + data.expires_in * 1000 : null),
+            scope: data.scope,
+            tokenType: data.token_type ?? data.tokenType,
+          };
+
+          // Update session with refreshed tokens
+          session.userSession = normalized;
+          if (normalized.idToken && typeof normalized.idToken === "string") {
+            session.oidcLogoutIdTokenHint = normalized.idToken;
+          }
+          
+          return normalized;
+        },
+      },
+    },
+    quranReflect: {
+      v1: {
+        posts: {
+          create: async (payload) => authFetch(`${quranReflectUrl}/v1/posts`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          }),
+          feed: async (params) => {
+            const query = new URLSearchParams();
+            Object.entries(params).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) {
+                query.set(key, String(value));
+              }
+            });
+            return authFetch(`${quranReflectUrl}/v1/posts/feed?${query}`);
+          },
+        },
+        users: {
+          profile: async () => authFetch(`${quranReflectUrl}/v1/users/profile`),
+        },
+      },
+    },
+    search: {
+      v1: {
+        query: async (params) => {
+          const query = new URLSearchParams();
+          Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              query.set(key, String(value));
+            }
+          });
+          return authFetch(`${gatewayUrl}/search/v1/query?${query}`);
+        },
+      },
+    },
+  };
+};
+
+const createCustomPublicClient = (config: ReturnType<typeof getConfig>): PublicClient => {
+  const oauth2Url = config.services?.oauth2BaseUrl ?? config.oauth2BaseUrl;
+  
+  return {
+    oauth2: {
+      v1: {
+        authorizeUrl: (params) => {
+          const query = new URLSearchParams();
+          Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              query.set(key, String(value));
+            }
+          });
+          return `${oauth2Url}/v1/authorize?${query}`;
+        },
+      },
+    },
+  };
+};
+
+export const createClients = async (session: StoredSession) => {
+  const config = getConfig();
+
+  return {
+    publicClient: createCustomPublicClient(config),
+    serverClient: createCustomServerClient(session, config),
   };
 };
 
 export const getSearchModeQuick = async (): Promise<string> => {
-  try {
-    const runtimeModule = await dynamicImport("@quranjs/api");
-    const searchMode = runtimeModule.SearchMode as
-      | { Quick?: unknown }
-      | undefined;
-
-    return typeof searchMode?.Quick === "string"
-      ? searchMode.Quick
-      : "quick";
-  } catch (_error) {
-    return "quick";
-  }
+  return "quick";
 };

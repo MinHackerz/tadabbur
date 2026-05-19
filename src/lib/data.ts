@@ -494,11 +494,11 @@ export const loadContentPreviewData = async (
 
     payload.items = items.map((chapter) => ({
       id: Number(asNullableNumber(chapter.id) ?? 0),
-      nameArabic: asNullableString(chapter.nameArabic),
-      nameSimple: asString(chapter.nameSimple, `Chapter ${asString(chapter.id)}`),
+      nameArabic: asNullableString(chapter.nameArabic ?? chapter.name_arabic),
+      nameSimple: asString(chapter.nameSimple ?? chapter.name_simple, `Chapter ${asString(chapter.id)}`),
       readerUrl: `/read/${asString(chapter.id)}`,
-      translatedName: asNullableString(asObject(chapter.translatedName).name),
-      versesCount: asNullableNumber(chapter.versesCount),
+      translatedName: asNullableString(asObject(chapter.translatedName ?? chapter.translated_name).name),
+      versesCount: asNullableNumber(chapter.versesCount ?? chapter.verses_count),
     }));
 
     if (payload.items[0]?.readerUrl) {
@@ -633,7 +633,7 @@ const findVerseOnChapterPage = async (
     });
 
     const verses = toArray(response, ["data", "verses"]);
-    const match = verses.find((item) => asNullableNumber(item.verseNumber) === verseNumber);
+    const match = verses.find((item) => asNullableNumber(item.verseNumber ?? item.verse_number) === verseNumber);
     if (match) {
       return match;
     }
@@ -795,7 +795,7 @@ export const loadReaderData = async (
   const chapterResponse = await serverClient.content.v4.chapters.get(chapterId);
   const chapterPayload = asObject(chapterResponse);
   const chapter = asObject(chapterPayload.chapter ?? chapterPayload);
-  const versesCount = asNullableNumber(chapter.versesCount);
+  const versesCount = asNullableNumber(chapter.versesCount ?? chapter.verses_count);
   const totalVersePages = Math.max(
     1,
     versesCount ? Math.ceil(versesCount / READER_PAGE_SIZE) : 1,
@@ -847,16 +847,16 @@ export const loadReaderData = async (
           finalAudioUrl = `https://verses.quran.com/${audioUrl.replace(/^\/+/, '')}`;
         }
       }
-      const verseNumber = asNullableNumber(verse.verseNumber);
+      const verseNumber = asNullableNumber(verse.verseNumber ?? verse.verse_number);
       const verseKey =
-        asNullableString(verse.verseKey) ??
+        asNullableString(verse.verseKey ?? verse.verse_key) ??
         (verseNumber !== null ? `${chapterId}:${verseNumber}` : null);
       const inlineTranslation = getTranslationText(verse.translations, translationResourceId);
 
       return {
-        arabicText: asString(verse.textUthmani),
+        arabicText: asString(verse.textUthmani ?? verse.text_uthmani),
         audioUrl: finalAudioUrl,
-        id: asString(verse.id ?? verseKey ?? `${chapterId}-${asString(verse.verseNumber, "verse")}`),
+        id: asString(verse.id ?? verseKey ?? `${chapterId}-${asString(verse.verseNumber ?? verse.verse_number, "verse")}`),
         translationText: inlineTranslation,
         verseKey,
         verseNumber,
@@ -888,9 +888,9 @@ export const loadReaderData = async (
   return {
     chapter: {
       id: Number(asNullableNumber(chapter.id) ?? Number(chapterId)),
-      nameArabic: asNullableString(chapter.nameArabic),
-      nameSimple: asString(chapter.nameSimple, `Chapter ${chapterId}`),
-      translatedName: asNullableString(asObject(chapter.translatedName).name),
+      nameArabic: asNullableString(chapter.nameArabic ?? chapter.name_arabic),
+      nameSimple: asString(chapter.nameSimple ?? chapter.name_simple, `Chapter ${chapterId}`),
+      translatedName: asNullableString(asObject(chapter.translatedName ?? chapter.translated_name).name),
       versesCount,
     },
     translationIds: [translationResourceId],
@@ -1376,7 +1376,9 @@ const normalizeAyahTafsir = (
   fallbackResourceId: number,
 ): Pick<AyahTafsirPayload, "resourceId" | "resourceName" | "text"> => {
   const root = asObject(verse);
-  const items = toArray(root.tafsirs, []);
+  // API returns { verse: { tafsirs: [...] } } - handle both nested and flat
+  const verseObj = asObject(root.verse ?? root);
+  const items = toArray(verseObj.tafsirs, []);
   const first = items[0] ? asObject(items[0]) : null;
   if (!first) {
     return { resourceId: fallbackResourceId, resourceName: null, text: null };
