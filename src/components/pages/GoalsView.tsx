@@ -93,6 +93,7 @@ export default function GoalsView({ isLoggedIn, data, submitGoalPayload }: Goals
   const handleSave = () => {
     submitGoalPayload({
       category: "QURAN",
+      mushafId: 4, // Hafs/Uthmani — required by the QF goals API
       period,
       type: goalType,
       targetAmount: target,
