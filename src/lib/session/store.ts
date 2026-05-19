@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { createClient, type RedisClientType } from "redis";
+import { Redis } from "@upstash/redis";
 
 import { SESSION_TTL_MS, SESSION_TTL_SECONDS } from "@/lib/constants";
 
@@ -71,61 +71,61 @@ export class MemorySessionStore implements SessionStore {
 }
 
 class RedisSessionStore implements SessionStore {
-  private client: RedisClientType;
-
-  private connectingPromise: Promise<void> | null = null;
+  private client: Redis;
 
   private readonly prefix = "qf:sess:";
 
-  summary = "Redis-backed shared session store";
+  summary = "Upstash Redis session store (HTTP)";
 
   constructor(redisUrl: string) {
-    this.client = createClient({ url: redisUrl });
-    this.client.on("error", (error) => {
-      console.error("Redis session store error", error);
+    // Parse the rediss:// URL to extract token and endpoint for Upstash REST
+    // Upstash REST URL format: https://<endpoint>.upstash.io
+    // Upstash Redis URL format: rediss://default:<token>@<endpoint>.upstash.io:6379
+    const url = new URL(redisUrl);
+    const token = url.password;
+    const restUrl = `https://${url.hostname}`;
+
+    this.client = new Redis({
+      url: restUrl,
+      token,
     });
   }
 
-  private async ensureConnected() {
-    if (this.client.isOpen) {
-      return;
-    }
-
-    this.connectingPromise ??= this.client
-      .connect()
-      .then(() => undefined)
-      .finally(() => {
-        this.connectingPromise = null;
-      });
-
-    await this.connectingPromise;
-  }
-
   async delete(id: string): Promise<void> {
-    await this.ensureConnected();
-    await this.client.del(`${this.prefix}${id}`);
+    try {
+      await this.client.del(`${this.prefix}${id}`);
+    } catch {
+      // Silently fail
+    }
   }
 
   async get(id: string): Promise<StoredSession | null> {
-    await this.ensureConnected();
-    const value = await this.client.get(`${this.prefix}${id}`);
-
-    if (!value) {
-      return null;
-    }
-
     try {
+      const value = await this.client.get<string>(`${this.prefix}${id}`);
+
+      if (!value) {
+        return null;
+      }
+
+      // @upstash/redis auto-parses JSON, but handle both cases
+      if (typeof value === "object") {
+        return value as unknown as StoredSession;
+      }
+
       return JSON.parse(value) as StoredSession;
-    } catch (_error) {
+    } catch {
       return null;
     }
   }
 
   async set(id: string, value: StoredSession): Promise<void> {
-    await this.ensureConnected();
-    await this.client.set(`${this.prefix}${id}`, JSON.stringify(value), {
-      EX: SESSION_TTL_SECONDS,
-    });
+    try {
+      await this.client.set(`${this.prefix}${id}`, JSON.stringify(value), {
+        ex: SESSION_TTL_SECONDS,
+      });
+    } catch {
+      // Fall through — session won't persist but app won't crash
+    }
   }
 }
 
