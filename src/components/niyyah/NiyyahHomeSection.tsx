@@ -184,6 +184,18 @@ export default function NiyyahHomeSection({
 
     // Create journey in database
     try {
+      console.log('[NiyyahHomeSection] Creating journey:', JSON.stringify({
+        type: j.type,
+        recipientName: j.recipientName,
+        occasion: j.occasion,
+        personalDua: j.personalDua,
+        goalType: j.goalType,
+        goalValue: j.goalValue,
+        readerName: j.readerName,
+        startDate: j.startDate,
+        targetDate: j.targetDate,
+      }));
+      
       const created = await apiCreateJourney({
         type: j.type,
         recipientName: j.recipientName,
@@ -195,6 +207,8 @@ export default function NiyyahHomeSection({
         startDate: j.startDate,
         targetDate: j.targetDate,
       });
+
+      console.log('[NiyyahHomeSection] Journey created:', created);
 
       if (created) {
         // The API returns the raw DB row without completedDays — normalize it.
@@ -220,11 +234,12 @@ export default function NiyyahHomeSection({
         setJourney(normalized);
         setSetupOpen(false);
       } else {
+        console.error('[NiyyahHomeSection] apiCreateJourney returned null');
         alert('Failed to create journey. Please try again.');
       }
     } catch (error) {
-      console.error('Failed to create niyyah journey:', error);
-      alert('Failed to create journey. Please try again.');
+      console.error('[NiyyahHomeSection] Failed to create niyyah journey:', error);
+      alert('Failed to create journey: ' + (error instanceof Error ? error.message : String(error)));
     }
   }
 

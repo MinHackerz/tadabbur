@@ -87,22 +87,29 @@ export default function NiyyahSetupModal({ open, initialType, onClose, onSeal }:
   const canSeal = sealed && recipient.trim().length > 0 && dua.trim().length > 0;
 
   function handleConfirm() {
-    const requested =
-      goalType === "custom"
-        ? customDays
-        : goalType === "days"
-          ? goalDays
-          : goalValue;
-    const input: NewJourneyInput = {
-      type,
-      recipientName: recipient,
-      occasion: finalOccasion,
-      personalDua: dua,
-      goalType,
-      goalValue: resolveGoalValue(goalType, requested),
-      readerName,
-    };
-    onSeal(createJourney(input));
+    try {
+      const requested =
+        goalType === "custom"
+          ? customDays
+          : goalType === "days"
+            ? goalDays
+            : goalValue;
+      const input: NewJourneyInput = {
+        type,
+        recipientName: recipient,
+        occasion: finalOccasion,
+        personalDua: dua,
+        goalType,
+        goalValue: resolveGoalValue(goalType, requested),
+        readerName,
+      };
+      const journey = createJourney(input);
+      console.log('[NiyyahSetupModal] handleConfirm called, journey:', journey);
+      onSeal(journey);
+    } catch (error) {
+      console.error('[NiyyahSetupModal] handleConfirm error:', error);
+      alert('Error creating journey: ' + (error instanceof Error ? error.message : String(error)));
+    }
   }
 
   if (!open || typeof document === "undefined") return null;
