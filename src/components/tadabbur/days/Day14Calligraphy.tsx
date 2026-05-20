@@ -14,7 +14,7 @@ export default function Day14Calligraphy({ circleId, verseKey, verseText, verseT
     <ChatGPTContent
       circleId={circleId}
       day={14}
-      angleType="calligraphy"
+      angleType="practical"
       verseKey={verseKey}
       verseText={verseText}
       verseTranslation={verseTranslation}

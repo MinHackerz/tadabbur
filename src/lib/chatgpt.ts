@@ -342,6 +342,50 @@ Keep it artistic, appreciative, and culturally rich (400-500 words).`,
       tavilyQuery: `Islamic calligraphy Quran ${verseKey} Arabic art manuscript ${verseTranslation.slice(0, 50)}`
     },
 
+    practical: {
+      prompt: `Provide practical, actionable guidance on how to apply Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}") in daily life.
+
+Structure your response:
+
+**Core Message:**
+- What is the essential teaching or principle in this verse?
+- The timeless wisdom that applies across all contexts
+- Why this matters for personal and spiritual growth
+
+**Daily Life Applications:**
+- **In Personal Character:** How does this verse shape your inner self, habits, and mindset?
+- **In Relationships:** How to apply this in family, friendships, and community interactions
+- **In Work/School:** Practical ways to embody this verse in professional or academic settings
+- **In Worship:** How this verse enriches your prayer, dhikr, and spiritual practices
+
+**Real-World Scenarios:**
+- 3-4 concrete, relatable examples of applying this verse
+- Specific situations where this guidance is needed
+- What it looks like in practice (not just theory)
+
+**Mindset Shifts:**
+- What internal changes does this verse call for?
+- Old patterns to release, new perspectives to adopt
+- The spiritual transformation this verse invites
+
+**Small Steps:**
+- Practical action items someone can start today
+- Habits to build or break
+- Daily reminders or practices
+
+**Challenges and Solutions:**
+- Common obstacles to living this verse
+- How to overcome them with Islamic wisdom
+- Staying consistent and sincere
+
+**Reflection Questions:**
+- Questions to help the reader internalize this verse
+- Prompts for self-examination and growth
+
+Keep it practical, relatable, and immediately actionable (500-600 words).`,
+      tavilyQuery: `Quran ${verseKey} practical application daily life Islamic guidance ${verseTranslation.slice(0, 50)}`
+    },
+
     madhab: {
       prompt: `Explain how different Islamic scholarly traditions and schools of thought have interpreted and applied Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}") in their understanding and practice.
 

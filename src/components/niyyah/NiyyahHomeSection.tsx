@@ -92,6 +92,60 @@ export default function NiyyahHomeSection({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isLoggedIn, journey]);
 
+  // Listen for verse completion events and trigger sync
+  useEffect(() => {
+    if (!isLoggedIn || !journey) return;
+
+    let syncTimeout: NodeJS.Timeout | null = null;
+    let completionCount = 0;
+
+    const handleVerseCompleted = async () => {
+      completionCount++;
+      
+      // Clear any existing timeout
+      if (syncTimeout) {
+        clearTimeout(syncTimeout);
+      }
+
+      // Debounce: wait 3 seconds after last completion before syncing
+      // This avoids excessive API calls when user marks multiple verses quickly
+      syncTimeout = setTimeout(async () => {
+        console.log(`[NiyyahHomeSection] ${completionCount} verse(s) completed, triggering sync...`);
+        completionCount = 0;
+        
+        try {
+          const syncResponse = await fetch('/api/niyyah/sync', {
+            method: 'POST',
+            credentials: 'include',
+          });
+          
+          if (syncResponse.ok) {
+            const syncData = await syncResponse.json();
+            if (syncData.synced) {
+              console.log('[NiyyahHomeSection] Auto-synced after verse completion:', syncData);
+              // Refresh journey data
+              const updated = await fetchJourney();
+              if (updated) {
+                setJourney(updated);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[NiyyahHomeSection] Failed to auto-sync after verse completion:', error);
+        }
+      }, 3000);
+    };
+
+    window.addEventListener('verse-completed', handleVerseCompleted);
+    
+    return () => {
+      window.removeEventListener('verse-completed', handleVerseCompleted);
+      if (syncTimeout) {
+        clearTimeout(syncTimeout);
+      }
+    };
+  }, [isLoggedIn, journey]);
+
   // Periodic refresh to check for updates (every 30 seconds when page is visible)
   useEffect(() => {
     if (!isLoggedIn || !journey) return;

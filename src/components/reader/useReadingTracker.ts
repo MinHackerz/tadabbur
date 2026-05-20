@@ -181,7 +181,14 @@ export function useReadingTracker(
         headers: { "content-type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ verseKey, timeSpentMs: estimatedMs }),
-      }).catch(() => {});
+      })
+        .then(() => {
+          // Dispatch custom event to notify other components of progress update
+          window.dispatchEvent(new CustomEvent('verse-completed', { 
+            detail: { verseKey, timeSpentMs: estimatedMs } 
+          }));
+        })
+        .catch(() => {});
     },
     [isLoggedIn],
   );
