@@ -282,10 +282,10 @@ export default function Day15Certificate({
       {/* Reflection Quote */}
       <div className="bg-warm/5 border border-warm/20 rounded-xl p-6 text-center">
         <p className="text-[15px] text-ink italic leading-relaxed mb-3">
-          "The Quran is not just a book to be read, but a companion to be lived with."
+          "The best of you are those who learn the Quran and teach it."
         </p>
         <p className="text-[12px] text-ink-tertiary">
-          — Islamic Wisdom
+          — Prophet Muhammad ﷺ (Sahih al-Bukhari 5027)
         </p>
       </div>
     </div>

@@ -344,7 +344,7 @@ export default function TadabburDayCard({ day, verseKey, circleId, verse, progre
           <div className="mb-6">
             <TimerCountdown 
               unlockTime={unlockTime}
-              bypassTimer={false}
+              bypassTimer={!timerEnabled}
               onUnlock={() => {
                 window.location.reload();
               }}

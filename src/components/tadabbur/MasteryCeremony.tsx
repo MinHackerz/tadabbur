@@ -1,14 +1,14 @@
 "use client";
 
-import { MOCK_MONTHLY_VERSE } from "@/lib/tadabbur-data";
-
 interface Props {
   verseKey: string;
+  verseArabic?: string;
+  verseReference?: string;
   personalStatement: string | null;
   onClose: () => void;
 }
 
-export default function MasteryCeremony({ verseKey, personalStatement, onClose }: Props) {
+export default function MasteryCeremony({ verseKey, verseArabic, verseReference, personalStatement, onClose }: Props) {
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-[#0A1628] to-[#1C3A2F] z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Animated particles */}
@@ -35,17 +35,19 @@ export default function MasteryCeremony({ verseKey, personalStatement, onClose }
             Mastery Achieved
           </h1>
           <p className="text-[16px] text-white/80">
-            You have sat with this verse for 30 days.
+            You have sat with this verse for 15 days.
           </p>
         </div>
 
         {/* The verse */}
         <div className="bg-surface/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 mb-8 animate-fade-in-delay">
-          <div className="font-amiri text-[32px] leading-relaxed text-white mb-4 text-right" dir="rtl">
-            {MOCK_MONTHLY_VERSE.arabic}
-          </div>
+          {verseArabic && (
+            <div className="font-amiri text-[32px] leading-relaxed text-white mb-4 text-right" dir="rtl">
+              {verseArabic}
+            </div>
+          )}
           <div className="text-[14px] text-white/70 mb-2">
-            {MOCK_MONTHLY_VERSE.reference}
+            {verseReference || verseKey}
           </div>
         </div>
 

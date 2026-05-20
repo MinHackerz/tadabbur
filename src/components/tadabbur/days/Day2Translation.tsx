@@ -16,6 +16,13 @@ interface Props {
   existingReflection?: string;
 }
 
+// Translation IDs to fetch
+const TRANSLATION_IDS = [
+  { id: 85, name: "Abdel Haleem", author: "M.A.S. Abdel Haleem" },
+  { id: 20, name: "Saheeh International", author: "Saheeh International" },
+  { id: 95, name: "Pickthall", author: "Mohammed Marmaduke Pickthall" },
+];
+
 export default function Day2Translation({ verseKey, onReflectionSave, existingReflection }: Props) {
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,33 +38,20 @@ export default function Day2Translation({ verseKey, onReflectionSave, existingRe
   async function fetchTranslations() {
     try {
       setLoading(true);
+      setError(null);
+
+      // Fetch translations for this specific verse from our API
+      const res = await fetch(`/api/tadabbur/translations?verseKey=${verseKey}`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch translations");
+      }
+      const data = await res.json();
       
-      // Mock translations for now since the API endpoint isn't working properly
-      const mockTranslations: Translation[] = [
-        {
-          id: 131,
-          name: "The Clear Quran",
-          author_name: "Dr. Mustafa Khattab",
-          text: "Allah does not require of any soul more than what it can afford. All good will be for its own benefit, and all evil will be to its own loss.",
-          language_name: "English",
-        },
-        {
-          id: 20,
-          name: "Pickthall",
-          author_name: "Mohammed Marmaduke Pickthall",
-          text: "Allah tasketh not a soul beyond its scope. For it (is only) that which it hath earned, and against it (only) that which it hath deserved.",
-          language_name: "English",
-        },
-        {
-          id: 84,
-          name: "Yusuf Ali",
-          author_name: "Abdullah Yusuf Ali",
-          text: "On no soul doth Allah Place a burden greater than it can bear. It gets every good that it earns, and it suffers every ill that it earns.",
-          language_name: "English",
-        },
-      ];
-      
-      setTranslations(mockTranslations);
+      if (data.translations && data.translations.length > 0) {
+        setTranslations(data.translations);
+      } else {
+        setError("No translations available for this verse.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load translations");
     } finally {

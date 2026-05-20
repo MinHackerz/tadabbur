@@ -160,12 +160,4 @@ export const DAILY_ANGLES: DailyAngle[] = [
   },
 ];
 
-export const MOCK_MONTHLY_VERSE = {
-  arabic: "لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا ۚ لَهَا مَا كَسَبَتْ وَعَلَيْهَا مَا اكْتَسَبَتْ",
-  transliteration: "Lā yukallifu llāhu nafsan illā wus'ahā, lahā mā kasabat wa 'alayhā mā ktasabat",
-  meaning: "Allah does not burden a soul beyond that it can bear. It will have the consequence of what good it has gained, and it will bear the consequence of what evil it has earned.",
-  reference: "Surah Al-Baqarah, 2:286",
-  verseKey: "2:286",
-  juzNumber: 3,
-  pageNumber: 49,
-};
+

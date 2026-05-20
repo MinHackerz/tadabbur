@@ -12,7 +12,7 @@ export default function VerseVault() {
           Your Verse Vault
         </h3>
         <p className="text-[14px] text-ink-secondary mb-4">
-          Complete your first 30-day journey to add a verse to your permanent collection.
+          Complete your first 15-day journey to add a verse to your permanent collection.
         </p>
         <p className="text-[13px] text-ink-tertiary">
           Each mastered verse becomes a lifelong companion—a treasury of deeply understood Quran.

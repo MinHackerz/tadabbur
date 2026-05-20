@@ -14,10 +14,10 @@ export async function POST() {
     const verseKey = selectRandomVerse();
     const hijriDate = getCurrentHijriDate();
     
-    // Calculate start and end dates (30-day period)
+    // Calculate start and end dates (15-day period)
     const startDate = new Date();
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 30);
+    endDate.setDate(endDate.getDate() + 15);
 
     // Create new circle
     const circle = await prisma.tadabburCircle.create({
