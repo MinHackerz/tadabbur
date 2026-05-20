@@ -129,6 +129,23 @@ export default function TadabburPage({ isLoggedIn }: Props) {
     setIsReadOnly(true);
   }
 
+  async function handleToggleTimer(progressId: string) {
+    try {
+      await fetch("/api/tadabbur/progress", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          progressId,
+          day: 1, // Required field but not used for toggle_timer
+          action: "toggle_timer",
+        }),
+      });
+      await loadTadabburData();
+    } catch (error) {
+      console.error("Failed to toggle timer:", error);
+    }
+  }
+
   if (loading) {
     return (
       <PageContent>
@@ -394,6 +411,7 @@ export default function TadabburPage({ isLoggedIn }: Props) {
                         onView={handleViewCircle}
                         onViewDay={handleViewDay}
                         isLoggedIn={isLoggedIn}
+                        onToggleTimer={handleToggleTimer}
                       />
                     ))}
                 </div>
