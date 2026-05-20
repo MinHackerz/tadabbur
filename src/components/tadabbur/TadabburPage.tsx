@@ -136,7 +136,6 @@ export default function TadabburPage({ isLoggedIn }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           progressId,
-          day: 1, // Required field but not used for toggle_timer
           action: "toggle_timer",
         }),
       });

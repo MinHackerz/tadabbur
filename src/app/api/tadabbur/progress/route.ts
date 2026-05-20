@@ -11,8 +11,13 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { progressId, day, action } = body;
 
-    if (!progressId || !day || !action) {
+    if (!progressId || !action) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Day is required for day-specific actions
+    if (!day && ["complete_day", "check_unlock"].includes(action)) {
+      return NextResponse.json({ error: "Day is required for this action" }, { status: 400 });
     }
 
     // Verify ownership
