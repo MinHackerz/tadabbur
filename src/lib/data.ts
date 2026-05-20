@@ -1031,6 +1031,17 @@ export const loadBootstrapData = async (
       : Promise.resolve({ data: null, error: null }),
   ]);
 
+  // If getUserInfo returns 401, the session is expired - clear it and return signed out state
+  if (userInfoResult.error && (userInfoResult.error.includes("401") || userInfoResult.error.includes("Unauthorized"))) {
+    session.userSession = null;
+    return createSignedOutBootstrap({
+      authError: "Your session has expired. Please sign in again.",
+      contentPreview,
+      flashNotice: null,
+      sessionStoreSummary,
+    });
+  }
+
   if (didSdkClearSession(initialUserSession, session)) {
     return createSignedOutBootstrap({
       authError,

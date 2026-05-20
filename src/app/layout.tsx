@@ -53,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body
         className={`${bodyFont.variable} ${arabicFont.variable} ${decorativeArabicFont.variable} ${monoFont.variable} ${niyyahDisplayFont.variable}`}
       >

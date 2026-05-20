@@ -240,6 +240,56 @@
   --ny-forest-deep: #3d8568;
 }
 
+/* ── Dark mode overrides for reading goal card ────────────────────── */
+[data-theme="dark"] .niyyah-scope .goal-card-bg {
+  background: linear-gradient(to bottom right, #0b1c17, #0f1f1a, #0b1c17) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-glow {
+  background: linear-gradient(to bottom right, rgba(184, 146, 74, 0.2), transparent) !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-icon {
+  color: #d8b15c !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-title {
+  color: #faf6ec !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-text {
+  color: #ede6d5 !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-button {
+  background-color: #b8924a !important;
+  color: #143028 !important;
+  box-shadow: 0 4px 12px rgba(184, 146, 74, 0.3) !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-button:hover {
+  background-color: #d8b15c !important;
+  box-shadow: 0 6px 16px rgba(184, 146, 74, 0.4) !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-divider {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-feature-icon {
+  color: #d8b15c !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-feature-title {
+  color: #faf6ec !important;
+}
+
+[data-theme="dark"] .niyyah-scope .goal-card-feature-desc {
+  color: rgba(237, 230, 213, 0.7) !important;
+}
+
 [data-theme="dark"] .niyyah-scope [role="dialog"] .bg-ny-cream {
   background-color: #1a2420;
 }

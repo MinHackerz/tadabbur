@@ -104,19 +104,36 @@ export function useInsight(chapterId:string,route:string) {
     const tmp:BookmarkItem={id:tmpId,readerUrl:`/read/${chapter}#verse-${verse}`,type:"ayah",verseKey:vk};
     const prev=data.bookmarks.items;
     repl<BookmarkItem>("bookmarks",i=>[tmp,...i]);
-    try{
-      const r=await mutReq<BookmarkItem>("/api/bookmarks","POST",{chapterNumber:chapter,verseNumber:verse});
-      // Replace the temp item with the real one from the server.
-      // If r.item has a real id use it; otherwise keep the temp item so the
-      // key stays in bookmarkedKeys and the UI stays consistent.
-      const confirmed=r.item??tmp;
-      repl<BookmarkItem>("bookmarks",i=>i.map(x=>x.id===tmpId?confirmed:x));
-      push(r.message??"Bookmarked.",true);
-    }catch(e){
-      repl<BookmarkItem>("bookmarks",()=>prev);
-      push((e as MutR).message??"Failed.",false);
-      await mutate();
-    }
+    
+    // Fire-and-forget approach like markComplete - don't wait for response
+    fetch("/api/bookmarks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ chapterNumber: chapter, verseNumber: verse }),
+    })
+      .then(async (r) => {
+        if (!r.ok) {
+          // Revert on failure
+          repl<BookmarkItem>("bookmarks", () => prev);
+          const errorData = await r.json().catch(() => ({ message: "Failed to save bookmark." }));
+          push(errorData.message || "Failed to save bookmark.", false);
+          await mutate();
+          return;
+        }
+        const result = await r.json();
+        // Replace temp with real item
+        if (result.item) {
+          repl<BookmarkItem>("bookmarks", i => i.map(x => x.id === tmpId ? result.item : x));
+        }
+        push(result.message || "Bookmarked.", true);
+      })
+      .catch(async (e) => {
+        // Revert on network error
+        repl<BookmarkItem>("bookmarks", () => prev);
+        push("Network error. Please check your connection.", false);
+        await mutate();
+      });
   }
 
   async function unbookmarkVerse(verseKey:string){
@@ -147,15 +164,36 @@ export function useInsight(chapterId:string,route:string) {
     if(!data?.isLoggedIn){push("Sign in first.",false);return}
     const prev=data.notes.items;
     repl<NoteItem>("notes",i=>i.map(x=>x.id===noteId?{...x,body}:x));
-    try{
-      const r=await mutReq<NoteItem>(`/api/notes/${noteId}`,"PUT",{body});
-      repl<NoteItem>("notes",i=>i.map(x=>x.id===noteId?r.item??x:x));
-      push(r.message??"Note updated.",true);
-    }catch(e){
-      repl<NoteItem>("notes",()=>prev);
-      push((e as MutR).message??"Failed.",false);
-      await mutate();
-    }
+    
+    // Fire-and-forget approach like markComplete
+    fetch(`/api/notes/${noteId}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ body }),
+    })
+      .then(async (r) => {
+        if (!r.ok) {
+          // Revert on failure
+          repl<NoteItem>("notes", () => prev);
+          const errorData = await r.json().catch(() => ({ message: "Failed to update note." }));
+          push(errorData.message || "Failed to update note.", false);
+          await mutate();
+          return;
+        }
+        const result = await r.json();
+        // Update with real item if provided
+        if (result.item) {
+          repl<NoteItem>("notes", i => i.map(x => x.id === noteId ? result.item : x));
+        }
+        push(result.message || "Note updated.", true);
+      })
+      .catch(async (e) => {
+        // Revert on network error
+        repl<NoteItem>("notes", () => prev);
+        push("Network error. Please check your connection.", false);
+        await mutate();
+      });
   }
 
   async function noteVerse(verseKey:string,body:string){
@@ -164,15 +202,36 @@ export function useInsight(chapterId:string,route:string) {
     const tmp:NoteItem={body,id:`t-${tid()}`,ranges:[`${verseKey}-${verseKey}`]};
     const prev=data.notes.items;
     repl<NoteItem>("notes",i=>[tmp,...i]);
-    try{
-      const r=await mutReq<NoteItem>("/api/notes","POST",{body,verseKey});
-      repl<NoteItem>("notes",i=>i.map(x=>x.id===tmp.id?r.item??x:x));
-      push(r.message??"Note saved.",true);
-    }catch(e){
-      repl<NoteItem>("notes",()=>prev);
-      push((e as MutR).message??"Failed.",false);
-      await mutate();
-    }
+    
+    // Fire-and-forget approach like markComplete - don't wait for response
+    fetch("/api/notes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ verseKey, body }),
+    })
+      .then(async (r) => {
+        if (!r.ok) {
+          // Revert on failure
+          repl<NoteItem>("notes", () => prev);
+          const errorData = await r.json().catch(() => ({ message: "Failed to save note." }));
+          push(errorData.message || "Failed to save note.", false);
+          await mutate();
+          return;
+        }
+        const result = await r.json();
+        // Replace temp with real item
+        if (result.item) {
+          repl<NoteItem>("notes", i => i.map(x => x.id === tmp.id ? result.item : x));
+        }
+        push(result.message || "Note saved.", true);
+      })
+      .catch(async (e) => {
+        // Revert on network error
+        repl<NoteItem>("notes", () => prev);
+        push("Network error. Please check your connection.", false);
+        await mutate();
+      });
   }
 
   function copyVerse(text:string){

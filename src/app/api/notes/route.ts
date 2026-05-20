@@ -50,8 +50,6 @@ export async function POST(req: NextRequest) {
       data: {
         userId: auth.user.sub,
         verseKey: parsed.verseKey,
-        surahId: parsed.surahId,
-        verseNumber: parsed.verseNumber,
         body,
       },
     });
