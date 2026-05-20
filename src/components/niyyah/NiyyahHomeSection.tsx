@@ -55,9 +55,6 @@ export default function NiyyahHomeSection({
 }: Props) {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [setupOpen, setSetupOpen] = useState(false);
-  const [setupType, setSetupType] = useState<JourneyType>("living");
-  const [setupKey, setSetupKey] = useState(0);
   const [ceremonyOpen, setCeremonyOpen] = useState(false);
   const [migrating, setMigrating] = useState(false);
 
@@ -94,6 +91,7 @@ export default function NiyyahHomeSection({
               mercyDayUsed: created.mercyDayUsed ?? false,
               lastMercyWeek: created.lastMercyWeek ?? null,
               isComplete: created.isComplete ?? false,
+              isActive: created.isActive ?? true,
             });
             setHydrated(true);
             return;
@@ -167,10 +165,10 @@ export default function NiyyahHomeSection({
     }
   }
 
-  function handleSelectType(t: JourneyType) {
-    setSetupType(t);
-    setSetupKey((k) => k + 1);
-    setSetupOpen(true);
+  function handleSelectType(journey: Journey) {
+    // The journey object is already created by the modal in JourneyTypeSelector
+    // Now we just need to save it to the database
+    handleSeal(journey);
   }
 
   async function handleSeal(j: Journey) {
@@ -180,6 +178,26 @@ export default function NiyyahHomeSection({
       // Redirect to sign in — after auth, the useEffect will pick up the pending journey
       window.location.href = "/api/auth/start";
       return;
+    }
+
+    // Check if this journey was already created (to prevent duplicates after sign-in)
+    // This can happen if the user was redirected to sign-in and the useEffect already created it
+    if (journey && journey.id) {
+      console.log('[NiyyahHomeSection] Journey already exists in state, skipping duplicate creation');
+      return;
+    }
+
+    // Also check if a journey exists in the database
+    try {
+      const existingJourney = await fetchJourney();
+      if (existingJourney) {
+        console.log('[NiyyahHomeSection] Journey already exists in database, using existing journey');
+        setJourney(existingJourney);
+        return;
+      }
+    } catch (error) {
+      console.error('[NiyyahHomeSection] Error checking for existing journey:', error);
+      // Continue with creation if check fails
     }
 
     // Create journey in database
@@ -229,10 +247,10 @@ export default function NiyyahHomeSection({
           mercyDayUsed: created.mercyDayUsed ?? false,
           lastMercyWeek: created.lastMercyWeek ?? null,
           isComplete: created.isComplete ?? false,
+          isActive: created.isActive ?? true,
           readerName: created.readerName ?? j.readerName,
         };
         setJourney(normalized);
-        setSetupOpen(false);
       } else {
         console.error('[NiyyahHomeSection] apiCreateJourney returned null');
         alert('Failed to create journey. Please try again.');
@@ -289,15 +307,21 @@ export default function NiyyahHomeSection({
       return;
     }
     
-    const confirmed = confirm('Are you sure you want to end this journey? This cannot be undone.');
-    if (confirmed) {
-      await persist(null);
+    const confirmed = confirm('Are you sure you want to end this journey? It will be moved to your journey history.');
+    if (confirmed && journey.id) {
+      // Mark journey as inactive instead of deleting
+      await updateJourney(journey.id, { isActive: false });
+      setJourney(null);
     }
   }
 
   async function handleStartAnother() {
     setCeremonyOpen(false);
-    await persist(null);
+    if (journey?.id && isLoggedIn) {
+      // Mark current journey as inactive before starting a new one
+      await updateJourney(journey.id, { isActive: false });
+    }
+    setJourney(null);
   }
 
   return (
@@ -381,14 +405,6 @@ export default function NiyyahHomeSection({
 
       {/* ── Closing du'a arch ─────────────────────────────────── */}
       <ClosingArch />
-
-      <NiyyahSetupModal
-        key={setupKey}
-        open={setupOpen}
-        initialType={setupType}
-        onClose={() => setSetupOpen(false)}
-        onSeal={handleSeal}
-      />
 
       {journey && (
         <CompletionCeremony

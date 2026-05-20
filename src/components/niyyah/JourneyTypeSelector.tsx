@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import { JOURNEY_TYPES, type JourneyType } from "@/lib/niyyah";
+import { JOURNEY_TYPES, type Journey, type JourneyType } from "@/lib/niyyah";
 import { JourneyTypeIcon } from "./icons";
 import { GoldCorners } from "./Ornament";
 import Link from "next/link";
 import NiyyahSetupModal from "./NiyyahSetupModal";
 
 interface Props {
-  onSelect: (type: JourneyType) => void;
+  onSelect: (journey: Journey) => void;
 }
 
 const TONE: Record<
@@ -352,8 +352,10 @@ export default function JourneyTypeSelector({ onSelect }: Props) {
         initialType={selectedType}
         onClose={() => setShowSetupModal(false)}
         onSeal={(journey) => {
+          console.log('[JourneyTypeSelector] onSeal called with journey:', journey);
           setShowSetupModal(false);
-          onSelect(journey.type);
+          // Pass the full journey object to the parent
+          onSelect(journey);
         }}
       />
     )}

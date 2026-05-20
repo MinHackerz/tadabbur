@@ -77,6 +77,7 @@ export async function updateJourney(
     mercyDayUsed?: boolean;
     lastMercyWeek?: string | null;
     isComplete?: boolean;
+    isActive?: boolean;
   }
 ): Promise<boolean> {
   try {

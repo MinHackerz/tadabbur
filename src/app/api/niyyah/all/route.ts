@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
       mercyDayUsed: j.mercyDayUsed,
       lastMercyWeek: j.lastMercyWeek,
       isComplete: j.isComplete,
+      isActive: j.isActive,
       readerName: j.readerName,
     }));
 

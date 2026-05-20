@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const journey = await prisma.niyyahJourney.findFirst({
-      where: { userId: user.sub },
+      where: { userId: user.sub, isActive: true },
       orderBy: { createdAt: "desc" },
       include: { days: { orderBy: { date: "asc" } } },
     });
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
         mercyDayUsed: journey.mercyDayUsed,
         lastMercyWeek: journey.lastMercyWeek,
         isComplete: journey.isComplete,
+        isActive: journey.isActive,
         readerName: journey.readerName,
       },
     });
@@ -96,7 +97,7 @@ export async function PUT(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { journeyId, currentStreak, longestStreak, mercyDayUsed, lastMercyWeek, isComplete } = body;
+    const { journeyId, currentStreak, longestStreak, mercyDayUsed, lastMercyWeek, isComplete, isActive } = body;
 
     if (!journeyId) return NextResponse.json({ error: "Journey ID is required" }, { status: 400 });
 
@@ -113,6 +114,7 @@ export async function PUT(req: NextRequest) {
         mercyDayUsed: mercyDayUsed ?? existing.mercyDayUsed,
         lastMercyWeek: lastMercyWeek ?? existing.lastMercyWeek,
         isComplete: isComplete ?? existing.isComplete,
+        isActive: isActive ?? existing.isActive,
       },
     });
 

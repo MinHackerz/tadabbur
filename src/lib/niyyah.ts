@@ -62,6 +62,7 @@ export interface Journey {
   mercyDayUsed: boolean;
   lastMercyWeek: string | null;
   isComplete: boolean;
+  isActive?: boolean;
   readerName?: string;
 }
 
@@ -705,6 +706,7 @@ export function createJourney(input: NewJourneyInput): Journey {
     mercyDayUsed: false,
     lastMercyWeek: null,
     isComplete: false,
+    isActive: true,
     readerName: input.readerName?.trim() || undefined,
   };
 }
