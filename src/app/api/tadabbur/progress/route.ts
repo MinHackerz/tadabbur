@@ -29,8 +29,9 @@ export async function PUT(req: NextRequest) {
     if (action === "complete_day") {
       // Check if 24 hours have passed since last completion (only if timer is enabled)
       const timeCheck = getTimeUntilNextDay(progress.lastCompletedAt);
+      const timerEnabled = progress.timerEnabled ?? true; // Default to true for existing users
       
-      if (progress.timerEnabled && !timeCheck.canUnlock && progress.completedDays.length > 0) {
+      if (timerEnabled && !timeCheck.canUnlock && progress.completedDays.length > 0) {
         return NextResponse.json({
           error: "Next day not yet unlocked",
           hoursRemaining: timeCheck.hoursRemaining,

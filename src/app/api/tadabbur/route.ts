@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
             personalStatement: userProgress.personalStatement,
             verseMemorised: userProgress.verseMemorised,
             duaLearned: userProgress.duaLearned,
-            timerEnabled: userProgress.timerEnabled,
+            timerEnabled: userProgress.timerEnabled ?? true, // Default to true for existing users
             journals: userProgress.journals.map((j: any) => ({
               day: j.day,
               content: j.content,
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { circleId } = body;
+    const { circleId, timerEnabled } = body;
 
     if (!circleId) {
       return NextResponse.json({ error: "Circle ID is required" }, { status: 400 });
@@ -129,6 +129,7 @@ export async function POST(req: NextRequest) {
         currentDay: 1,
         completedDays: [],
         startedDate: new Date(),
+        timerEnabled: timerEnabled !== undefined ? timerEnabled : true,
       },
       update: {},
       include: {

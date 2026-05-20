@@ -95,11 +95,22 @@ export default function TadabburPage({ isLoggedIn }: Props) {
     }
 
     try {
+      // Get timer preference from localStorage (set by the join buttons)
+      const timerPref = localStorage.getItem('tadabbur-timer-preference');
+      const timerEnabled = timerPref === null ? true : timerPref === 'true';
+      
       await fetch("/api/tadabbur", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ circleId }),
+        body: JSON.stringify({ 
+          circleId,
+          timerEnabled 
+        }),
       });
+      
+      // Clear the preference after using it
+      localStorage.removeItem('tadabbur-timer-preference');
+      
       await loadTadabburData();
     } catch (error) {
       console.error("Failed to join circle:", error);
@@ -300,12 +311,39 @@ export default function TadabburPage({ isLoggedIn }: Props) {
 
           {!progress && (
             <div className="text-center py-12">
-              <button
-                onClick={() => joinCircle(selectedCircle.id)}
-                className="bg-accent hover:bg-accent-hover text-white px-8 py-4 rounded-xl font-medium text-[15px] transition-colors"
-              >
-                {isLoggedIn ? "Join This Circle" : "Sign in to Join"}
-              </button>
+              <div className="max-w-md mx-auto mb-6">
+                <p className="text-[14px] text-ink-secondary mb-4">
+                  Choose your journey style:
+                </p>
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('tadabbur-timer-preference', 'true');
+                      joinCircle(selectedCircle.id);
+                    }}
+                    className="bg-surface border-2 border-accent hover:bg-accent/5 p-4 rounded-xl text-left transition-all group"
+                  >
+                    <div className="text-[20px] mb-2">⏱️</div>
+                    <div className="text-[14px] font-medium text-ink mb-1">15-Day Mode</div>
+                    <div className="text-[12px] text-ink-tertiary">
+                      One day unlocks every 24 hours
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('tadabbur-timer-preference', 'false');
+                      joinCircle(selectedCircle.id);
+                    }}
+                    className="bg-surface border-2 border-border hover:border-accent hover:bg-accent/5 p-4 rounded-xl text-left transition-all group"
+                  >
+                    <div className="text-[20px] mb-2">🚀</div>
+                    <div className="text-[14px] font-medium text-ink mb-1">Self-Paced</div>
+                    <div className="text-[12px] text-ink-tertiary">
+                      Complete at your own speed
+                    </div>
+                  </button>
+                </div>
+              </div>
               {!isLoggedIn && (
                 <p className="text-[13px] text-ink-tertiary mt-4">
                   You need to sign in to join this circle and track your progress

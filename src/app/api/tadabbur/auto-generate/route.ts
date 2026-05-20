@@ -13,10 +13,16 @@ import { selectRandomVerse, getCurrentHijriDate } from "@/lib/tadabbur-helpers";
 export async function POST(req: NextRequest) {
   try {
     // Verify cron secret to prevent unauthorized access
+    // Vercel Cron sends x-vercel-cron header, or use Bearer token
     const authHeader = req.headers.get("authorization");
+    const vercelCron = req.headers.get("x-vercel-cron");
     const cronSecret = process.env.CRON_SECRET || "dev-secret-change-in-production";
     
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    // Allow if it's from Vercel Cron or has correct Bearer token
+    const isAuthorized = vercelCron === "1" || authHeader === `Bearer ${cronSecret}`;
+    
+    if (!isAuthorized) {
+      console.error("[auto-generate] Unauthorized attempt:", { vercelCron, hasAuth: !!authHeader });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
