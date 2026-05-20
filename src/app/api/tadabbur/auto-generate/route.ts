@@ -173,15 +173,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Manual trigger endpoint for testing
+// GET endpoint for Vercel Cron (Vercel Cron uses GET by default)
+// Also used for manual triggering in development
 export async function GET(req: NextRequest) {
   try {
-    // Allow manual trigger in development
-    if (process.env.NODE_ENV !== "development") {
-      return NextResponse.json({ error: "Only available in development" }, { status: 403 });
-    }
-
-    // Call the POST handler
+    // Vercel Cron uses GET requests, so we need to allow them in production
+    // The auth check inside POST will handle authorization
     const response = await POST(req);
     return response;
   } catch (error) {
