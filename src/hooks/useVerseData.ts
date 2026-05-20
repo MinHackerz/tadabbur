@@ -41,16 +41,12 @@ export function useVerseData(verseKey: string): UseVerseDataResult {
 
       const [surah, ayah] = verseKey.split(":").map(Number);
 
-      // Fetch verse text (Arabic) and metadata
-      const verseTextRes = await fetch(
-        `https://api.quran.com/api/v4/quran/verses/uthmani?verse_key=${verseKey}`
-      );
-      const verseTextData = await verseTextRes.json();
-      const verseText = verseTextData.verses?.[0];
-
-      if (!verseText) {
-        throw new Error("Verse not found");
+      // Fetch verse data with translation from our API route
+      const verseDataRes = await fetch(`/api/verse/${verseKey}`);
+      if (!verseDataRes.ok) {
+        throw new Error("Failed to fetch verse data");
       }
+      const verseData = await verseDataRes.json();
 
       // Fetch verse with word fields for transliteration
       const wordsRes = await fetch(
@@ -77,16 +73,19 @@ export function useVerseData(verseKey: string): UseVerseDataResult {
       const chapterData = await chapterRes.json();
       const chapter = chapterData.chapter;
 
-      // Fetch English translation (using Dr. Mustafa Khattab - The Clear Quran, translation ID: 131)
-      const translationRes = await fetch(
-        `https://api.quran.com/api/v4/quran/translations/131?verse_key=${verseKey}`
-      );
-      const translationData = await translationRes.json();
-      const translation = translationData.translations?.[0]?.text || "";
+      // Clean and truncate translation to first 10-15 words
+      let translation = verseData.translation || "";
+      // Remove HTML tags if any
+      translation = translation.replace(/<[^>]+>/g, "");
+      // Split into words and take first 15
+      const words_array = translation.split(/\s+/);
+      if (words_array.length > 15) {
+        translation = words_array.slice(0, 15).join(" ") + "...";
+      }
 
       setVerse({
         verseKey,
-        arabic: verseText.text_uthmani,
+        arabic: verseData.arabic || "",
         transliteration,
         translation,
         audioUrl,
