@@ -183,42 +183,47 @@ export default function NiyyahHomeSection({
     }
 
     // Create journey in database
-    const created = await apiCreateJourney({
-      type: j.type,
-      recipientName: j.recipientName,
-      occasion: j.occasion,
-      personalDua: j.personalDua,
-      goalType: j.goalType,
-      goalValue: j.goalValue,
-      readerName: j.readerName,
-      startDate: j.startDate,
-      targetDate: j.targetDate,
-    });
+    try {
+      const created = await apiCreateJourney({
+        type: j.type,
+        recipientName: j.recipientName,
+        occasion: j.occasion,
+        personalDua: j.personalDua,
+        goalType: j.goalType,
+        goalValue: j.goalValue,
+        readerName: j.readerName,
+        startDate: j.startDate,
+        targetDate: j.targetDate,
+      });
 
-    if (created) {
-      // The API returns the raw DB row without completedDays — normalize it.
-      const normalized: Journey = {
-        v: 1,
-        id: created.id ?? j.id,
-        type: created.type ?? j.type,
-        recipientName: created.recipientName ?? j.recipientName,
-        occasion: created.occasion ?? j.occasion,
-        personalDua: created.personalDua ?? j.personalDua,
-        goalType: created.goalType ?? j.goalType,
-        goalValue: created.goalValue ?? j.goalValue,
-        startDate: created.startDate ?? j.startDate,
-        targetDate: created.targetDate ?? j.targetDate,
-        completedDays: created.completedDays ?? [],
-        currentStreak: created.currentStreak ?? 0,
-        longestStreak: created.longestStreak ?? 0,
-        mercyDayUsed: created.mercyDayUsed ?? false,
-        lastMercyWeek: created.lastMercyWeek ?? null,
-        isComplete: created.isComplete ?? false,
-        readerName: created.readerName ?? j.readerName,
-      };
-      setJourney(normalized);
-      setSetupOpen(false);
-    } else {
+      if (created) {
+        // The API returns the raw DB row without completedDays — normalize it.
+        const normalized: Journey = {
+          v: 1,
+          id: created.id ?? j.id,
+          type: created.type ?? j.type,
+          recipientName: created.recipientName ?? j.recipientName,
+          occasion: created.occasion ?? j.occasion,
+          personalDua: created.personalDua ?? j.personalDua,
+          goalType: created.goalType ?? j.goalType,
+          goalValue: created.goalValue ?? j.goalValue,
+          startDate: created.startDate ?? j.startDate,
+          targetDate: created.targetDate ?? j.targetDate,
+          completedDays: created.completedDays ?? [],
+          currentStreak: created.currentStreak ?? 0,
+          longestStreak: created.longestStreak ?? 0,
+          mercyDayUsed: created.mercyDayUsed ?? false,
+          lastMercyWeek: created.lastMercyWeek ?? null,
+          isComplete: created.isComplete ?? false,
+          readerName: created.readerName ?? j.readerName,
+        };
+        setJourney(normalized);
+        setSetupOpen(false);
+      } else {
+        alert('Failed to create journey. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to create niyyah journey:', error);
       alert('Failed to create journey. Please try again.');
     }
   }

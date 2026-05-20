@@ -61,8 +61,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { type, recipientName, occasion, personalDua, goalType, goalValue, startDate, targetDate, readerName } = body;
 
-    if (!type || !recipientName || !occasion || !personalDua || !goalType || !goalValue || !startDate || !targetDate) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!type || !recipientName || !occasion || !personalDua || !goalType || goalValue === undefined || goalValue === null || !startDate || !targetDate) {
+      return NextResponse.json({ error: "Missing required fields", detail: { type: !!type, recipientName: !!recipientName, occasion: !!occasion, personalDua: !!personalDua, goalType: !!goalType, goalValue, startDate: !!startDate, targetDate: !!targetDate } }, { status: 400 });
     }
 
     const journey = await prisma.niyyahJourney.create({
@@ -84,8 +84,9 @@ export async function POST(req: NextRequest) {
       journey: { ...journey, startDate: toIso(journey.startDate), targetDate: toIso(journey.targetDate) },
     }, { status: 201 });
   } catch (error) {
-    if (process.env.NODE_ENV === "development") console.error(error);
-    return NextResponse.json({ error: "Failed to create journey" }, { status: 500 });
+    console.error("[/api/niyyah POST]", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: "Failed to create journey", detail: msg }, { status: 500 });
   }
 }
 
