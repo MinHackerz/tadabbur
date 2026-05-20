@@ -13,18 +13,41 @@ import { selectRandomVerse, getCurrentHijriDate } from "@/lib/tadabbur-helpers";
 export async function POST(req: NextRequest) {
   try {
     // Verify cron secret to prevent unauthorized access
-    // Vercel Cron sends x-vercel-cron header, or use Bearer token
+    // Vercel Cron sends special headers
     const authHeader = req.headers.get("authorization");
-    const vercelCron = req.headers.get("x-vercel-cron");
+    const vercelCronHeader = req.headers.get("x-vercel-cron");
+    const vercelSignature = req.headers.get("x-vercel-signature");
     const cronSecret = process.env.CRON_SECRET || "dev-secret-change-in-production";
     
-    // Allow if it's from Vercel Cron or has correct Bearer token
-    const isAuthorized = vercelCron === "1" || authHeader === `Bearer ${cronSecret}`;
+    // Log headers for debugging
+    console.log("[auto-generate] Headers:", {
+      hasAuth: !!authHeader,
+      vercelCron: vercelCronHeader,
+      hasSignature: !!vercelSignature,
+      userAgent: req.headers.get("user-agent"),
+    });
+    
+    // Allow if:
+    // 1. Has Vercel Cron header (any value)
+    // 2. Has Vercel Signature (Vercel's way of authenticating)
+    // 3. Has correct Bearer token
+    // 4. User agent is vercel-cron
+    const userAgent = req.headers.get("user-agent") || "";
+    const isVercelCron = vercelCronHeader !== null || 
+                         vercelSignature !== null || 
+                         userAgent.includes("vercel-cron");
+    const hasValidToken = authHeader === `Bearer ${cronSecret}`;
+    const isAuthorized = isVercelCron || hasValidToken;
     
     if (!isAuthorized) {
-      console.error("[auto-generate] Unauthorized attempt:", { vercelCron, hasAuth: !!authHeader });
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.error("[auto-generate] Unauthorized attempt");
+      return NextResponse.json({ 
+        error: "Unauthorized",
+        hint: "This endpoint requires Vercel Cron or valid Bearer token"
+      }, { status: 401 });
     }
+    
+    console.log("[auto-generate] Authorized via:", isVercelCron ? "Vercel Cron" : "Bearer token");
 
     const now = new Date();
     const TARGET_ACTIVE_CIRCLES = 10; // Generate 10 unique circles
