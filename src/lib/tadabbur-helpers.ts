@@ -86,19 +86,40 @@ export function getHijriMonthName(monthIndex: number): string {
 }
 
 export function getCurrentHijriDate(): { month: string; year: number } {
-  // Simplified Hijri calculation (in production, use a proper library like hijri-date)
-  const gregorianDate = new Date();
-  const gregorianYear = gregorianDate.getFullYear();
-  const gregorianMonth = gregorianDate.getMonth();
-  
-  // Approximate conversion (Hijri year is about 11 days shorter)
-  const hijriYear = Math.floor((gregorianYear - 622) * 1.030684);
-  const hijriMonth = (gregorianMonth + 1) % 12;
-  
-  return {
-    month: getHijriMonthName(hijriMonth),
-    year: hijriYear,
-  };
+  // Use JavaScript's built-in Intl API for accurate Hijri date conversion
+  try {
+    const gregorianDate = new Date();
+    
+    // Get Hijri date parts using Intl.DateTimeFormat
+    const hijriFormatter = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", {
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    });
+    
+    const parts = hijriFormatter.formatToParts(gregorianDate);
+    const monthIndex = parseInt(parts.find(p => p.type === "month")?.value || "1") - 1;
+    const year = parseInt(parts.find(p => p.type === "year")?.value || "1447");
+    
+    return {
+      month: getHijriMonthName(monthIndex),
+      year: year,
+    };
+  } catch (error) {
+    console.error("Error getting Hijri date:", error);
+    // Fallback to approximate calculation if Intl API fails
+    const gregorianDate = new Date();
+    const gregorianYear = gregorianDate.getFullYear();
+    const gregorianMonth = gregorianDate.getMonth();
+    
+    const hijriYear = Math.floor((gregorianYear - 622) * 1.030684);
+    const hijriMonth = (gregorianMonth + 1) % 12;
+    
+    return {
+      month: getHijriMonthName(hijriMonth),
+      year: hijriYear,
+    };
+  }
 }
 
 export function formatTimeRemaining(hours: number, minutes: number): string {
