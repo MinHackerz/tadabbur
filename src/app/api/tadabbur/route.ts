@@ -31,6 +31,10 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Get today's date for expiry check
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     // Build response with stats for each circle
     const circlesWithStats = await Promise.all(
       activeCircles.map(async (circle) => {
@@ -45,6 +49,16 @@ export async function GET(req: NextRequest) {
         }
 
         const userProgress = userProgressList.find(p => p.circleId === circle.id);
+        
+        // Check if circle is expired (past end date)
+        const circleEndDate = new Date(circle.endDate);
+        circleEndDate.setHours(0, 0, 0, 0);
+        const isExpired = today > circleEndDate;
+        
+        // If circle is expired and user hasn't joined, skip it
+        if (isExpired && !userProgress) {
+          return null;
+        }
 
         return {
           id: circle.id,
@@ -84,8 +98,11 @@ export async function GET(req: NextRequest) {
       })
     );
 
+    // Filter out null values (expired circles without user progress)
+    const filteredCircles = circlesWithStats.filter(circle => circle !== null);
+
     return NextResponse.json({
-      circles: circlesWithStats,
+      circles: filteredCircles,
     });
   } catch (error) {
     console.error("[/api/tadabbur GET]", error);
@@ -113,6 +130,19 @@ export async function POST(req: NextRequest) {
 
     if (!circle) {
       return NextResponse.json({ error: "Circle not found" }, { status: 404 });
+    }
+
+    // Check if circle is expired (past end date)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const circleEndDate = new Date(circle.endDate);
+    circleEndDate.setHours(0, 0, 0, 0);
+    
+    if (today > circleEndDate) {
+      return NextResponse.json({ 
+        error: "Circle expired", 
+        message: "This circle is no longer accepting new participants." 
+      }, { status: 400 });
     }
 
     // Create or get user progress

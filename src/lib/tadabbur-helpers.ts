@@ -128,3 +128,32 @@ export function formatTimeRemaining(hours: number, minutes: number): string {
   }
   return `${minutes}m`;
 }
+
+/**
+ * Calculate days remaining until a circle expires (closes for new joiners)
+ */
+export function getDaysUntilExpiry(endDate: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  
+  const diffMs = end.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  
+  return Math.max(0, diffDays);
+}
+
+/**
+ * Check if a circle is expired (past its end date)
+ */
+export function isCircleExpired(endDate: string): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  
+  return today > end;
+}

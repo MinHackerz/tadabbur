@@ -1,6 +1,7 @@
 "use client";
 
 import { useVerseData } from "@/hooks/useVerseData";
+import { getDaysUntilExpiry } from "@/lib/tadabbur-helpers";
 
 interface Circle {
   id: string;
@@ -30,6 +31,9 @@ export default function TadabburCircleCard({ circle, onJoin, onView, onViewDay, 
   const completedDays = circle.userProgress?.completedDays || [];
   const currentDay = circle.userProgress?.currentDay || 1;
   const isComplete = circle.userProgress?.isComplete || false;
+  
+  // Calculate days until circle expires (closes for new joiners)
+  const daysUntilExpiry = getDaysUntilExpiry(circle.endDate);
 
   return (
     <div className="bg-surface border border-border rounded-2xl p-6 hover:border-accent/50 transition-all">
@@ -42,6 +46,12 @@ export default function TadabburCircleCard({ circle, onJoin, onView, onViewDay, 
           <div className="text-[15px] font-semibold text-ink">
             {circle.verseKey} · {circle.totalDays} Days
           </div>
+          {/* Show availability for non-joined circles */}
+          {!hasJoined && daysUntilExpiry > 0 && (
+            <div className="text-[11px] text-accent font-medium mt-1">
+              Available for {daysUntilExpiry} {daysUntilExpiry === 1 ? 'day' : 'days'}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 text-[12px] text-ink-tertiary">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
