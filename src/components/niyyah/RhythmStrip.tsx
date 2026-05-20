@@ -1,8 +1,7 @@
-"use client";
-
 import Link from "next/link";
 import useSWR from "swr";
 import { getSurah } from "@/lib/niyyah";
+import { calculateStreak, getStreakMessage, type ReadingDay } from "@/lib/streak";
 import { ArrowRight } from "./icons";
 import { GoldCorners } from "./Ornament";
 import type { TodayReadingStats } from "@/app/api/reading/today/route";
@@ -34,28 +33,6 @@ interface Props {
   goalPlanSummary?: string | null;
 }
 
-function computeStreak(sessions: ReadingHistoryRow[]): number {
-  if (!sessions.length) return 0;
-  const uniqueDates = [...new Set(sessions.map((s) => s.date))].sort().reverse();
-  const today = new Date().toISOString().slice(0, 10);
-  // Streak must include today or yesterday to be active.
-  if (uniqueDates[0] !== today) {
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    if (uniqueDates[0] !== yesterday) return 0;
-  }
-  let streak = 1;
-  for (let i = 1; i < uniqueDates.length; i++) {
-    const prev = new Date(uniqueDates[i - 1]).getTime();
-    const curr = new Date(uniqueDates[i]).getTime();
-    if (prev - curr <= 86_400_000 * 1.5) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
 export default function RhythmStrip({
   bookmarkCount,
   notesCount,
@@ -80,11 +57,22 @@ export default function RhythmStrip({
     { revalidateOnFocus: false },
   );
 
-  const streak = history ? computeStreak(history) : 0;
+  // Calculate streak with new logic (minimum thresholds + mercy day)
+  const readingDays: ReadingDay[] = history
+    ? history.map((s) => ({
+        date: s.date,
+        versesRead: s.versesRead,
+        minutesRead: s.minutesRead,
+      }))
+    : [];
+  
+  const streakResult = calculateStreak(readingDays);
   const lastSession = history?.[0] ?? null;
   const lastSurah = lastSession ? getSurah(lastSession.surahId) : null;
   const lastVerse = lastSession?.lastVerseKey?.split(":")[1] ?? null;
-  const readToday = lastSession?.date === today;
+  const readToday = lastSession?.date === today && 
+    (lastSession.versesRead >= 5 || lastSession.minutesRead >= 5);
+  const streakMessage = getStreakMessage(streakResult, readToday);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
@@ -151,14 +139,12 @@ export default function RhythmStrip({
               <div className="flex flex-col items-center">
                 <dt className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">Streak</dt>
                 <dd className="m-0 font-[var(--font-niyyah-display)] text-[1.6rem] font-semibold text-ny-ink leading-none mt-0.5">
-                  {streak}d
+                  {streakResult.currentStreak}d
                 </dd>
               </div>
             </dl>
             <p className="text-[11px] text-ny-sage italic m-0 mt-1.5">
-              {readToday
-                ? "You read today — barakallahu feek."
-                : "Open the reader to extend your rhythm."}
+              {streakMessage}
             </p>
           </>
         ) : isLoggedIn ? (

@@ -22,7 +22,7 @@ import {
   textarea as TA,
 } from "@/components/ui/primitives";
 
-type Tab = "bookmarks" | "notes" | "journeys" | "goals";
+type Tab = "bookmarks" | "notes" | "journeys" | "goals" | "tadabbur";
 
 const fetchJson = async <T,>(url: string): Promise<T> => {
   const r = await fetch(url, { credentials: "include" });
@@ -89,6 +89,14 @@ export default function LibraryView({
   const completedJourneys = allJourneys.filter((j) => j.isComplete);
   const activeJourneys = allJourneys.filter((j) => !j.isComplete);
 
+  // Fetch Tadabbur certificates
+  const { data: certificatesData } = useSWR<{ certificates: any[] }>(
+    isLoggedIn ? "/api/tadabbur/certificate" : null,
+    fetchJson,
+    { revalidateOnFocus: false },
+  );
+  const certificates = certificatesData?.certificates ?? [];
+
   // Goals data from bootstrap
   const goalsData = data.goals.data;
 
@@ -96,6 +104,7 @@ export default function LibraryView({
     { id: "bookmarks", label: "Bookmarks", count: bookmarks.length },
     { id: "notes", label: "Notes", count: notes.length },
     { id: "journeys", label: "Journeys", count: allJourneys.length },
+    { id: "tadabbur", label: "Tadabbur", count: certificates.length },
     { id: "goals", label: "Goals" },
   ];
 
@@ -200,6 +209,90 @@ export default function LibraryView({
                     {completedJourneys.map((j) => <JourneyCard key={j.id} journey={j} completed />)}
                   </div>
                 </section>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Tadabbur tab ── */}
+      {tab === "tadabbur" && (
+        <div className="mt-6 space-y-6">
+          {!isLoggedIn ? (
+            <SignInBanner message="Sign in to view your Tadabbur certificates." />
+          ) : (
+            <>
+              {certificates.length === 0 ? (
+                <div className={card + " feature-card"}>
+                  <EmptyState message="No Tadabbur certificates yet. Complete a 15-day journey to earn your first certificate!" />
+                  <div className="mt-4 text-center">
+                    <Link href="/tadabbur" className={btnPrimary}>Start Tadabbur Journey</Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {certificates.map((cert: any) => (
+                    <div key={cert.id} className={card + " feature-card hover:border-accent/40 transition-colors"}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                              <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-ink text-[15px]">
+                                Quran {cert.verseKey}
+                              </h3>
+                              <p className="text-[12px] text-ink-tertiary">
+                                Completed {new Date(cert.completedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <p className="text-[13px] text-ink-secondary mb-3">
+                            15-day deep study completed • All angles explored
+                          </p>
+
+                          <div className="flex flex-wrap gap-2">
+                            <a
+                              href={cert.shareableUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg text-[12px] font-semibold hover:bg-accent-hover transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                              </svg>
+                              View & Verify
+                            </a>
+                            
+                            <Link
+                              href={`/tadabbur?circle=${cert.circleId}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-secondary text-ink rounded-lg text-[12px] font-semibold hover:bg-border transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              Review Journey
+                            </Link>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-[11px] font-semibold">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                            </svg>
+                            Verified
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </>
           )}

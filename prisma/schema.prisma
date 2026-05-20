@@ -72,16 +72,16 @@ model NiyyahJourney {
 }
 
 model NiyyahJourneyDay {
-  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  journeyId  String        @map("journey_id") @db.Uuid
-  date       DateTime      @db.Date
-  versesRead Int           @map("verses_read")
-  surahRange String        @map("surah_range")
-  startKey   String        @map("start_key") @db.VarChar(50)
-  endKey     String        @map("end_key") @db.VarChar(50)
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  journeyId  String   @map("journey_id") @db.Uuid
+  date       DateTime @db.Date
+  versesRead Int      @map("verses_read")
+  surahRange String   @map("surah_range")
+  startKey   String   @map("start_key") @db.VarChar(50)
+  endKey     String   @map("end_key") @db.VarChar(50)
   reflection String?
-  isMercy    Boolean       @default(false) @map("is_mercy")
-  createdAt  DateTime      @default(now()) @map("created_at")
+  isMercy    Boolean  @default(false) @map("is_mercy")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   journey NiyyahJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
 
@@ -134,12 +134,12 @@ model Bookmark {
 }
 
 model Collection {
-  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String           @map("user_id") @db.VarChar(255)
-  name          String           @db.VarChar(255)
-  coverImageUrl String?          @map("cover_image_url") @db.VarChar(1024)
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at")
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @map("user_id") @db.VarChar(255)
+  name          String   @db.VarChar(255)
+  coverImageUrl String?  @map("cover_image_url") @db.VarChar(1024)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   items CollectionItem[]
 
@@ -171,6 +171,117 @@ model Note {
   @@index([userId])
   @@index([userId, verseKey])
   @@map("notes")
+}
+
+model TadabburCircle {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  verseKey        String   @map("verse_key") @db.VarChar(20)
+  hijriMonth      String   @map("hijri_month") @db.VarChar(50)
+  hijriYear       Int      @map("hijri_year")
+  startDate       DateTime @map("start_date") @db.Date
+  endDate         DateTime @map("end_date") @db.Date
+  isActive        Boolean  @default(true) @map("is_active")
+  totalDays       Int      @default(15) @map("total_days")
+  participantCount Int     @default(0) @map("participant_count")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  userProgress TadabburUserProgress[]
+  cachedContent TadabburCachedContent[]
+
+  @@unique([verseKey, hijriYear])
+  @@map("tadabbur_circles")
+}
+
+model TadabburCachedContent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  circleId  String   @map("circle_id") @db.Uuid
+  day       Int
+  angleType String   @map("angle_type") @db.VarChar(50)
+  content   String   @db.Text
+  sources   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  circle TadabburCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([circleId, day, angleType])
+  @@index([circleId])
+  @@map("tadabbur_cached_content")
+}
+
+model TadabburUserProgress {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.VarChar(255)
+  circleId          String    @map("circle_id") @db.Uuid
+  currentDay        Int       @default(1) @map("current_day")
+  completedDays     Int[]     @default([]) @map("completed_days")
+  lastCompletedAt   DateTime? @map("last_completed_at")
+  startedDate       DateTime  @map("started_date") @db.Date
+  isComplete        Boolean   @default(false) @map("is_complete")
+  completedAt       DateTime? @map("completed_at")
+  personalStatement String?   @map("personal_statement")
+  verseMemorised    Boolean   @default(false) @map("verse_memorised")
+  duaLearned        Boolean   @default(false) @map("dua_learned")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  circle   TadabburCircle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  journals TadabburJournal[]
+  actions  TadabburAction[]
+  certificate TadabburCertificate?
+
+  @@unique([userId, circleId])
+  @@index([userId])
+  @@map("tadabbur_user_progress")
+}
+
+model TadabburJournal {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  progressId String   @map("progress_id") @db.Uuid
+  day        Int
+  content    String
+  isPublic   Boolean  @default(false) @map("is_public")
+  region     String?  @db.VarChar(100)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  progress TadabburUserProgress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+
+  @@unique([progressId, day])
+  @@index([progressId])
+  @@map("tadabbur_journals")
+}
+
+model TadabburAction {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  progressId String   @map("progress_id") @db.Uuid
+  day        Int
+  completed  Boolean  @default(false)
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  progress TadabburUserProgress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+
+  @@unique([progressId, day])
+  @@index([progressId])
+  @@map("tadabbur_actions")
+}
+
+model TadabburCertificate {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @map("user_id") @db.VarChar(255)
+  progressId      String   @unique @map("progress_id") @db.Uuid
+  circleId        String   @map("circle_id") @db.Uuid
+  verseKey        String   @map("verse_key") @db.VarChar(20)
+  completedAt     DateTime @map("completed_at")
+  certificateText String   @map("certificate_text") @db.Text
+  shareableUrl    String?  @map("shareable_url") @db.VarChar(500)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  progress TadabburUserProgress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("tadabbur_certificates")
 }
 
 model Goal {

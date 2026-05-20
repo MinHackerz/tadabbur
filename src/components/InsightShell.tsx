@@ -3,14 +3,15 @@ import PageShell from "@/components/layout/PageShell";
 import ReaderView from "@/components/reader/ReaderView";
 import { btnPrimary as B1, card as C } from "@/components/ui/primitives";
 import { useInsight } from "@/components/useInsight";
+import HomeView from "@/components/HomeView";
 import GoalsView from "@/components/pages/GoalsView";
 import LibraryView from "@/components/pages/LibraryView";
 import SearchView from "@/components/pages/SearchView";
 import SettingsView from "@/components/pages/SettingsView";
-import HomeView from "./HomeView";
+import TadabburPage from "@/components/tadabbur/TadabburPage";
 import { summarizeGoalPlan } from "@/lib/goalPlan";
 
-const FEATURE_ROUTES = new Set(["search", "library", "goals", "settings"]);
+const FEATURE_ROUTES = new Set(["search", "library", "goals", "settings", "tadabbur"]);
 
 export default function InsightShell({route,chapterId="1"}:{route:string;chapterId?:string}){
   const h=useInsight(chapterId,route);
@@ -169,6 +170,10 @@ export default function InsightShell({route,chapterId="1"}:{route:string;chapter
           data={d}
           submitGoalPayload={h.submitGoalPayload}
         />
+      )}
+
+      {route === "tadabbur" && (
+        <TadabburPage isLoggedIn={li} />
       )}
 
       {route === "settings" && (

@@ -27,6 +27,13 @@
   --color-danger: #b35454;
   --color-danger-subtle: #f6e3e3;
 
+  /* Tadabbur Circle design tokens */
+  --color-tadabbur-ink: #1C1C1E;
+  --color-tadabbur-parchment: #F7F3EC;
+  --color-tadabbur-gold: #C9A84C;
+  --color-tadabbur-muted: #8C7E6E;
+  --color-tadabbur-progress: #1C3A2F;
+
   --font-arabic: var(--font-noto-arabic), serif;
   --font-decorative: var(--font-amiri), var(--font-noto-arabic), serif;
   --font-mono: var(--font-space-mono), 'Fira Code', monospace;

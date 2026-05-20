@@ -1,0 +1,171 @@
+export interface DailyAngle {
+  day: number;
+  angleName: string;
+  angleType: "recitation" | "translation" | "wordByWord" | "revelation" | "sahabi" | "tafsir" | "journal" | "natural" | "verseToVerse" | "dua" | "historical" | "scholar" | "constellation" | "calligraphy" | "madhab" | "action" | "hadith" | "readerStory";
+  tag: string;
+  timeMinutes: number;
+  prompt: string;
+  journalPlaceholder?: string;
+  isWeeklyCheckpoint?: boolean;
+  requiresApi?: "quran" | "chatgpt" | "dictionary" | "search";
+  cacheInDb?: boolean;
+}
+
+export const DAILY_ANGLES: DailyAngle[] = [
+  {
+    day: 1,
+    angleName: "First Listen",
+    angleType: "recitation",
+    tag: "Recitation",
+    timeMinutes: 5,
+    prompt: "Close your eyes. Press play. Listen to this verse 7 times. After listening: what is the first word or feeling that came to you?",
+    journalPlaceholder: "The first word or feeling that came to me was...",
+    requiresApi: "quran",
+  },
+  {
+    day: 2,
+    angleName: "The Meaning",
+    angleType: "translation",
+    tag: "Translation",
+    timeMinutes: 5,
+    prompt: "Compare multiple translations. Where do they differ? Which word choice resonates most with you today?",
+    requiresApi: "quran",
+  },
+  {
+    day: 3,
+    angleName: "Word by Word",
+    angleType: "wordByWord",
+    tag: "Linguistic",
+    timeMinutes: 7,
+    prompt: "Each Arabic word carries layers of meaning. Explore the root words and their English meanings.",
+    requiresApi: "dictionary",
+  },
+  {
+    day: 4,
+    angleName: "Why It Was Revealed",
+    angleType: "revelation",
+    tag: "Historical Context",
+    timeMinutes: 5,
+    prompt: "Understanding the circumstances of revelation (Asbab al-Nuzul) illuminates the verse's timeless wisdom.",
+    requiresApi: "chatgpt",
+    cacheInDb: true,
+  },
+  {
+    day: 5,
+    angleName: "A Companion's Story",
+    angleType: "sahabi",
+    tag: "Sahaba",
+    timeMinutes: 5,
+    prompt: "How did the companions of the Prophet ﷺ live this verse? Their lives are our living tafsir.",
+    requiresApi: "chatgpt",
+    cacheInDb: true,
+  },
+  {
+    day: 6,
+    angleName: "Classical Tafsir",
+    angleType: "tafsir",
+    tag: "Scholarly Wisdom",
+    timeMinutes: 7,
+    prompt: "The great scholars—Ibn Kathir, Al-Tabari, Al-Qurtubi—spent lifetimes contemplating these words.",
+    requiresApi: "quran",
+  },
+  {
+    day: 7,
+    angleName: "Your Reflection",
+    angleType: "journal",
+    tag: "Weekly Journal",
+    timeMinutes: 5,
+    prompt: "You've spent a week with this verse. Where does it live in your life right now? Write and publish your reflection for others to read.",
+    journalPlaceholder: "In my life right now, this verse speaks to...",
+    isWeeklyCheckpoint: true,
+  },
+  {
+    day: 8,
+    angleName: "Natural World",
+    angleType: "natural",
+    tag: "Creation Signs",
+    timeMinutes: 5,
+    prompt: "The Quran constantly points to nature as evidence. What natural phenomenon or scientific principle echoes this verse?",
+    requiresApi: "chatgpt",
+    cacheInDb: true,
+  },
+  {
+    day: 9,
+    angleName: "Verse to Verse",
+    angleType: "verseToVerse",
+    tag: "Tafsir bil-Quran",
+    timeMinutes: 5,
+    prompt: "The Quran explains itself. Explore similar verses that illuminate this one's meaning.",
+    requiresApi: "search",
+  },
+  {
+    day: 10,
+    angleName: "A Du'a From This Verse",
+    angleType: "dua",
+    tag: "Worship",
+    timeMinutes: 3,
+    prompt: "Turn this verse into a personal supplication. Pray it back to Allah in your own words during your prayers.",
+    journalPlaceholder: "Ya Allah, from this verse I ask You...",
+  },
+  {
+    day: 11,
+    angleName: "Historical Context",
+    angleType: "historical",
+    tag: "7th Century Arabia",
+    timeMinutes: 5,
+    prompt: "What was happening in Makkah or Madinah when this verse descended? How did it address that moment?",
+    requiresApi: "chatgpt",
+    cacheInDb: true,
+  },
+  {
+    day: 12,
+    angleName: "A Scholar Today",
+    angleType: "scholar",
+    tag: "Contemporary Voice",
+    timeMinutes: 5,
+    prompt: "Contemporary scholars bring fresh perspectives. How do modern thinkers apply this verse to today's challenges?",
+    requiresApi: "chatgpt",
+    cacheInDb: true,
+  },
+  {
+    day: 13,
+    angleName: "Week 2 Constellation",
+    angleType: "constellation",
+    tag: "Integration",
+    timeMinutes: 4,
+    prompt: "Look back at all 12 angles you've explored. What patterns emerge? What surprised you?",
+    isWeeklyCheckpoint: true,
+    requiresApi: "chatgpt",
+    cacheInDb: true,
+  },
+  {
+    day: 14,
+    angleName: "Calligraphy Tradition",
+    angleType: "calligraphy",
+    tag: "Islamic Art",
+    timeMinutes: 4,
+    prompt: "For centuries, Muslim artists have rendered this verse in breathtaking calligraphy. Beauty is a form of understanding.",
+    requiresApi: "chatgpt",
+    cacheInDb: true,
+  },
+  {
+    day: 15,
+    angleName: "Madhab Applications",
+    angleType: "madhab",
+    tag: "Fiqh",
+    timeMinutes: 6,
+    prompt: "How have the different schools of Islamic law (Hanafi, Maliki, Shafi'i, Hanbali) applied this verse in their rulings?",
+    requiresApi: "chatgpt",
+    cacheInDb: true,
+  },
+];
+
+export const MOCK_MONTHLY_VERSE = {
+  arabic: "لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا ۚ لَهَا مَا كَسَبَتْ وَعَلَيْهَا مَا اكْتَسَبَتْ",
+  transliteration: "Lā yukallifu llāhu nafsan illā wus'ahā, lahā mā kasabat wa 'alayhā mā ktasabat",
+  meaning: "Allah does not burden a soul beyond that it can bear. It will have the consequence of what good it has gained, and it will bear the consequence of what evil it has earned.",
+  reference: "Surah Al-Baqarah, 2:286",
+  verseKey: "2:286",
+  juzNumber: 3,
+  pageNumber: 49,
+};
