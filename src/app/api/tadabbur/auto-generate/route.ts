@@ -13,41 +13,52 @@ import { selectRandomVerse, getCurrentHijriDate } from "@/lib/tadabbur-helpers";
 export async function POST(req: NextRequest) {
   try {
     // Verify cron secret to prevent unauthorized access
-    // Vercel Cron sends special headers
     const authHeader = req.headers.get("authorization");
     const vercelCronHeader = req.headers.get("x-vercel-cron");
     const vercelSignature = req.headers.get("x-vercel-signature");
-    const cronSecret = process.env.CRON_SECRET || "dev-secret-change-in-production";
+    const userAgent = req.headers.get("user-agent") || "";
+    const cronSecret = process.env.CRON_SECRET;
     
-    // Log headers for debugging
-    console.log("[auto-generate] Headers:", {
+    // Log all relevant headers for debugging
+    console.log("[auto-generate] Request details:", {
       hasAuth: !!authHeader,
+      authValue: authHeader ? authHeader.substring(0, 20) + "..." : null,
       vercelCron: vercelCronHeader,
       hasSignature: !!vercelSignature,
-      userAgent: req.headers.get("user-agent"),
+      userAgent: userAgent,
+      hasCronSecret: !!cronSecret,
+      timestamp: new Date().toISOString(),
     });
     
     // Allow if:
-    // 1. Has Vercel Cron header (any value)
-    // 2. Has Vercel Signature (Vercel's way of authenticating)
-    // 3. Has correct Bearer token
-    // 4. User agent is vercel-cron
-    const userAgent = req.headers.get("user-agent") || "";
-    const isVercelCron = vercelCronHeader !== null || 
-                         vercelSignature !== null || 
-                         userAgent.includes("vercel-cron");
-    const hasValidToken = authHeader === `Bearer ${cronSecret}`;
-    const isAuthorized = isVercelCron || hasValidToken;
+    // 1. User agent is vercel-cron (most reliable)
+    // 2. Has Vercel Cron header
+    // 3. Has Vercel Signature
+    // 4. Has correct Bearer token
+    // 5. No CRON_SECRET set (development/testing)
+    const isVercelCron = userAgent.includes("vercel-cron") || 
+                         vercelCronHeader !== null || 
+                         vercelSignature !== null;
+    const hasValidToken = cronSecret && authHeader === `Bearer ${cronSecret}`;
+    const noCronSecret = !cronSecret; // Allow if no secret is configured
+    
+    const isAuthorized = isVercelCron || hasValidToken || noCronSecret;
     
     if (!isAuthorized) {
-      console.error("[auto-generate] Unauthorized attempt");
+      console.error("[auto-generate] Unauthorized - none of the auth methods matched");
       return NextResponse.json({ 
         error: "Unauthorized",
-        hint: "This endpoint requires Vercel Cron or valid Bearer token"
+        debug: process.env.NODE_ENV === "development" ? {
+          userAgent,
+          hasVercelCron: vercelCronHeader !== null,
+          hasSignature: vercelSignature !== null,
+          hasCronSecret: !!cronSecret,
+        } : undefined
       }, { status: 401 });
     }
     
-    console.log("[auto-generate] Authorized via:", isVercelCron ? "Vercel Cron" : "Bearer token");
+    const authMethod = isVercelCron ? "Vercel Cron" : hasValidToken ? "Bearer token" : "No secret configured";
+    console.log("[auto-generate] Authorized via:", authMethod);
 
     const now = new Date();
     const TARGET_ACTIVE_CIRCLES = 10; // Generate 10 unique circles
