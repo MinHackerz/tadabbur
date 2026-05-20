@@ -61,11 +61,12 @@ export default function Day15Certificate({
   }
 
   function downloadCertificate(svg: string, filename: string) {
+    // Convert SVG to PDF-like format by downloading as SVG (browser can print to PDF)
     const blob = new Blob([svg], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename;
+    link.download = filename.replace('.svg', '.pdf').replace('.pdf', '.svg'); // Keep as SVG for now
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

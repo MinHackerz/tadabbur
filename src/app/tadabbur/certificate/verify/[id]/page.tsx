@@ -1,6 +1,7 @@
 import { prisma } from "@/db";
 import { PageContent } from "@/components/ui/primitives";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -9,16 +10,22 @@ interface Props {
 export default async function CertificateVerificationPage({ params }: Props) {
   const { id } = await params;
 
-  const certificate = await prisma.tadabburCertificate.findUnique({
-    where: { id },
-    include: {
-      progress: {
-        include: {
-          circle: true,
+  let certificate: any = null;
+
+  try {
+    certificate = await prisma.tadabburCertificate.findUnique({
+      where: { id },
+      include: {
+        progress: {
+          include: {
+            circle: true,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    console.error("[Certificate Verify] Database error:", error);
+  }
 
   if (!certificate) {
     notFound();
@@ -55,7 +62,7 @@ export default async function CertificateVerificationPage({ params }: Props) {
               <div className="text-[12px] text-ink-tertiary uppercase tracking-wider font-semibold mb-2">
                 Certificate ID
               </div>
-              <div className="font-mono text-[13px] text-ink bg-surface-secondary px-3 py-2 rounded">
+              <div className="font-mono text-[13px] text-ink bg-surface-secondary px-3 py-2 rounded break-all">
                 {certificate.id}
               </div>
             </div>
@@ -100,7 +107,7 @@ export default async function CertificateVerificationPage({ params }: Props) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[13px] text-ink-secondary">
             <div className="flex items-center gap-2">
-              <span className="text-accent">✓</span> Recitation & Deep Listening
+              <span className="text-accent">✓</span> Recitation &amp; Deep Listening
             </div>
             <div className="flex items-center gap-2">
               <span className="text-accent">✓</span> Multiple Translations
@@ -139,7 +146,7 @@ export default async function CertificateVerificationPage({ params }: Props) {
               <span className="text-accent">✓</span> Holistic Integration
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-accent">✓</span> Calligraphic Tradition
+              <span className="text-accent">✓</span> Practical Life Application
             </div>
             <div className="flex items-center gap-2">
               <span className="text-accent">✓</span> Madhab Applications
@@ -160,18 +167,12 @@ export default async function CertificateVerificationPage({ params }: Props) {
 
         {/* Actions */}
         <div className="mt-8 flex justify-center gap-4">
-          <a
+          <Link
             href="/tadabbur"
             className="px-6 py-3 bg-accent text-white rounded-xl font-semibold text-[14px] hover:bg-accent-hover transition-all shadow-sm"
           >
             Start Your Journey
-          </a>
-          <button
-            onClick={() => window.print()}
-            className="px-6 py-3 bg-surface border border-border text-ink rounded-xl font-semibold text-[14px] hover:bg-surface-hover transition-all"
-          >
-            Print Certificate
-          </button>
+          </Link>
         </div>
       </div>
     </PageContent>

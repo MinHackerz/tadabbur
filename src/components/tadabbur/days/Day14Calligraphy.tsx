@@ -18,8 +18,8 @@ export default function Day14Calligraphy({ circleId, verseKey, verseText, verseT
       verseKey={verseKey}
       verseText={verseText}
       verseTranslation={verseTranslation}
-      title="Calligraphy Tradition"
-      description="For centuries, Muslim artists have rendered this verse in breathtaking calligraphy across mosques, manuscripts, and art. Beauty is a form of understanding."
+      title="Practical Life Application"
+      description="How can you practically apply the lessons of this verse in your daily life? Explore real-world scenarios, habits, and mindset shifts that bring this verse to life in your relationships, work, and worship."
     />
   );
 }

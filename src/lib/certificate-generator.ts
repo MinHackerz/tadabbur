@@ -112,7 +112,7 @@ export function generateCertificateSVG(data: CertificateData): string {
     <text x="750" y="790">✓ Historical Context</text>
     <text x="750" y="820">✓ Contemporary Scholars</text>
     <text x="750" y="850">✓ Holistic Integration</text>
-    <text x="750" y="880">✓ Calligraphic Tradition</text>
+    <text x="750" y="880">✓ Practical Life Application</text>
     <text x="750" y="910">✓ Madhab Applications</text>
   </g>
   

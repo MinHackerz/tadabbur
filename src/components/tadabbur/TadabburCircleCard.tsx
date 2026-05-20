@@ -70,24 +70,26 @@ export default function TadabburCircleCard({ circle, onJoin, onView, onViewDay, 
       {/* Progress or Join Button */}
       {hasJoined ? (
         <div className="space-y-3">
-          {/* Pace Mode Toggle */}
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-ink-tertiary uppercase tracking-wider">Pace</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onToggleTimer && circle.userProgress?.id) {
-                  onToggleTimer(circle.userProgress.id);
-                }
-              }}
-              className="flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full border border-border hover:border-accent transition-colors"
-            >
-              <span>{circle.userProgress?.timerEnabled !== false ? "⏱️" : "🚀"}</span>
-              <span className="text-ink-secondary">
-                {circle.userProgress?.timerEnabled !== false ? "15-Day" : "Self-Paced"}
-              </span>
-            </button>
-          </div>
+          {/* Pace Mode Toggle - only show if not completed */}
+          {!isComplete && (
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-ink-tertiary uppercase tracking-wider">Pace</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onToggleTimer && circle.userProgress?.id) {
+                    onToggleTimer(circle.userProgress.id);
+                  }
+                }}
+                className="flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-full border border-border hover:border-accent transition-colors"
+              >
+                <span>{circle.userProgress?.timerEnabled !== false ? "⏱️" : "🚀"}</span>
+                <span className="text-ink-secondary">
+                  {circle.userProgress?.timerEnabled !== false ? "15-Day" : "Self-Paced"}
+                </span>
+              </button>
+            </div>
+          )}
 
           {/* Progress Bar */}
           <div>

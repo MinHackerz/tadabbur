@@ -285,7 +285,15 @@ export default function TadabburDayCard({ day, verseKey, circleId, verse, progre
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <button
-            onClick={onBack}
+            onClick={() => {
+              // Navigate back properly using URL
+              if (day > 1) {
+                window.history.pushState({}, '', `/tadabbur?circle=${circleId}&day=${day - 1}`);
+              } else {
+                window.history.pushState({}, '', `/tadabbur?circle=${circleId}`);
+              }
+              onBack();
+            }}
             className="flex items-center gap-2 text-[14px] text-ink-secondary hover:text-accent transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
