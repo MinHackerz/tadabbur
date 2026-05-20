@@ -998,13 +998,26 @@ export const loadBootstrapData = async (
   const { serverClient } = await createClients(session);
 
   // Library (bookmarks/notes/collections) and Goals are owned by this app's
-  // own Postgres tables now. We resolve the user id from the OIDC id_token
-  // claims so we can scope the queries by `sub`.
+  // own Postgres tables now. We resolve the user id using the same approach
+  // as getUserFromSession to ensure consistency with API routes.
   const idTokenForUser = (initialUserSession.idToken ?? initialUserSession.id_token) as
     | string
     | undefined;
   const claims = typeof idTokenForUser === "string" ? decodeJwt(idTokenForUser) : null;
-  const userId = (claims?.sub as string | undefined) ?? null;
+  let userId = (claims?.sub as string | undefined) ?? null;
+  
+  // Fallback: try sub directly from session (same as getUserFromSession)
+  if (!userId) {
+    userId = (initialUserSession.sub as string | undefined) ?? null;
+  }
+  // Fallback: try accessToken
+  if (!userId) {
+    const accessToken = (initialUserSession.accessToken ?? initialUserSession.access_token) as string | undefined;
+    if (typeof accessToken === "string") {
+      const atClaims = decodeJwt(accessToken);
+      userId = (atClaims?.sub ?? atClaims?.client_id) as string | undefined ?? null;
+    }
+  }
 
   const localLibrary = userId
     ? await loadLibrarySlices(userId).catch(() => ({ bookmarks: [], notes: [], collections: [] }))
