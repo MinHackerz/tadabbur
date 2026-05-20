@@ -23,10 +23,10 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const TARGET_ACTIVE_CIRCLES = 4;
     
-    // Check currently active circles AND upcoming circles (within next 30 days)
-    // This ensures we maintain a pipeline of circles
+    // Check currently active circles AND upcoming circles (within next 15 days)
+    // This ensures we maintain a pipeline of circles and generate new ones as they complete
     const futureDate = new Date(now);
-    futureDate.setDate(futureDate.getDate() + 30);
+    futureDate.setDate(futureDate.getDate() + 15);
     
     const activeAndUpcomingCircles = await prisma.tadabburCircle.findMany({
       where: {
@@ -108,8 +108,6 @@ export async function POST(req: NextRequest) {
               hijriYear: hijriDate.year,
               startDate: startDate.toISOString(),
               endDate: endDate.toISOString(),
-              totalDays: 15,
-              participantCount: 0,
             },
           });
 

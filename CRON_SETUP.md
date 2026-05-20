@@ -50,12 +50,14 @@ npm run cron:test
 ## How It Works
 
 1. **Daily Check**: The cron job calls `/api/tadabbur/auto-generate` daily
-2. **Circle Count Check**: The endpoint checks active and upcoming circles (within next 30 days)
+2. **Circle Count Check**: The endpoint checks active and upcoming circles (within next 15 days)
 3. **Generation Logic**: 
    - **Target**: Always maintain 4 active/upcoming circles
+   - Checks for circles that are active or starting within the next 15 days
    - If fewer than 4 circles exist, generate enough to reach 4
    - New circles are staggered 1 day apart, starting after the latest existing circle ends
    - If 4 or more circles already exist, do nothing
+   - **15-Day Cycle**: Since each circle lasts 15 days, new circles are generated as existing ones complete
 4. **Duplicate Prevention**:
    - Each verse can only be used **once per Hijri year** (unique constraint on `verseKey + hijriYear`)
    - Before creating a circle, checks if the verse has already been used this year
