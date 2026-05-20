@@ -20,9 +20,10 @@ interface Props {
   onJoin: (circleId: string) => void;
   onView: (circle: Circle) => void;
   onViewDay: (circle: Circle, day: number) => void;
+  isLoggedIn?: boolean;
 }
 
-export default function TadabburCircleCard({ circle, onJoin, onView, onViewDay }: Props) {
+export default function TadabburCircleCard({ circle, onJoin, onView, onViewDay, isLoggedIn = true }: Props) {
   const { verse, loading } = useVerseData(circle.verseKey);
   const hasJoined = !!circle.userProgress;
   const completedDays = circle.userProgress?.completedDays || [];
@@ -109,7 +110,7 @@ export default function TadabburCircleCard({ circle, onJoin, onView, onViewDay }
           onClick={() => onJoin(circle.id)}
           className="w-full bg-accent hover:bg-accent-hover text-white py-3 rounded-xl font-medium text-[14px] transition-colors"
         >
-          Join This Circle
+          {isLoggedIn ? "Join This Circle" : "Sign in to Join"}
         </button>
       )}
     </div>

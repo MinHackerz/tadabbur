@@ -77,8 +77,12 @@ export function useVerseData(verseKey: string): UseVerseDataResult {
       const chapterData = await chapterRes.json();
       const chapter = chapterData.chapter;
 
-      // Use a simple English translation for now
-      const translation = "Allah does not burden a soul beyond that it can bear...";
+      // Fetch English translation (using Dr. Mustafa Khattab - The Clear Quran, translation ID: 131)
+      const translationRes = await fetch(
+        `https://api.quran.com/api/v4/quran/translations/131?verse_key=${verseKey}`
+      );
+      const translationData = await translationRes.json();
+      const translation = translationData.translations?.[0]?.text || "";
 
       setVerse({
         verseKey,

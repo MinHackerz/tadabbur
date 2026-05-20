@@ -87,6 +87,12 @@ export default function TadabburPage({ isLoggedIn }: Props) {
   }
 
   async function joinCircle(circleId: string) {
+    // Redirect to sign-in if not authenticated
+    if (!isLoggedIn) {
+      window.location.href = "/api/auth/start";
+      return;
+    }
+
     try {
       await fetch("/api/tadabbur", {
         method: "POST",
@@ -121,17 +127,7 @@ export default function TadabburPage({ isLoggedIn }: Props) {
     );
   }
 
-  if (!isLoggedIn) {
-    return (
-      <PageContent>
-        <PageHero
-          title="The Tadabbur Circle"
-          subtitle="15 Days. One Verse. Infinite Depth. Join the global community in deep reflection."
-        />
-        <SignInBanner message="Sign in to join The Tadabbur Circle and begin your 15-day journey of deep Quranic reflection." />
-      </PageContent>
-    );
-  }
+  // Removed sign-in gate - non-authenticated users can now view circles
 
   // Show day view
   if (selectedDay !== null && selectedCircle && verse && !verseLoading) {
@@ -284,8 +280,13 @@ export default function TadabburPage({ isLoggedIn }: Props) {
                 onClick={() => joinCircle(selectedCircle.id)}
                 className="bg-accent hover:bg-accent-hover text-white px-8 py-4 rounded-xl font-medium text-[15px] transition-colors"
               >
-                Join This Circle
+                {isLoggedIn ? "Join This Circle" : "Sign in to Join"}
               </button>
+              {!isLoggedIn && (
+                <p className="text-[13px] text-ink-tertiary mt-4">
+                  You need to sign in to join this circle and track your progress
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -301,6 +302,12 @@ export default function TadabburPage({ isLoggedIn }: Props) {
           title="The Tadabbur Circle"
           subtitle="15 Days. One Verse. Infinite Depth."
         />
+
+        {!isLoggedIn && (
+          <div className="mb-8">
+            <SignInBanner message="Sign in to join The Tadabbur Circle and begin your 15-day journey of deep Quranic reflection." />
+          </div>
+        )}
 
         {circles.length === 0 ? (
           <div className="text-center py-12">
@@ -324,6 +331,7 @@ export default function TadabburPage({ isLoggedIn }: Props) {
                         onJoin={joinCircle}
                         onView={handleViewCircle}
                         onViewDay={handleViewDay}
+                        isLoggedIn={isLoggedIn}
                       />
                     ))}
                 </div>
@@ -344,6 +352,7 @@ export default function TadabburPage({ isLoggedIn }: Props) {
                         onJoin={joinCircle}
                         onView={handleViewCircle}
                         onViewDay={handleViewDay}
+                        isLoggedIn={isLoggedIn}
                       />
                     ))}
                 </div>
