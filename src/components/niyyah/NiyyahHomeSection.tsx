@@ -57,6 +57,73 @@ export default function NiyyahHomeSection({
   const [hydrated, setHydrated] = useState(false);
   const [ceremonyOpen, setCeremonyOpen] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Refresh journey data when user returns to the page after reading
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && isLoggedIn && journey) {
+        // User returned to the page, try to auto-sync first
+        try {
+          const syncResponse = await fetch('/api/niyyah/sync', {
+            method: 'POST',
+            credentials: 'include',
+          });
+          
+          if (syncResponse.ok) {
+            const syncData = await syncResponse.json();
+            if (syncData.synced) {
+              console.log('[NiyyahHomeSection] Auto-synced journey progress:', syncData);
+            }
+          }
+        } catch (error) {
+          console.error('[NiyyahHomeSection] Failed to auto-sync:', error);
+        }
+        
+        // Then refresh journey data
+        const updated = await fetchJourney();
+        if (updated) {
+          setJourney(updated);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isLoggedIn, journey]);
+
+  // Periodic refresh to check for updates (every 30 seconds when page is visible)
+  useEffect(() => {
+    if (!isLoggedIn || !journey) return;
+
+    const intervalId = setInterval(async () => {
+      if (document.hidden) return; // Skip if page is not visible
+      
+      try {
+        // Try to auto-sync
+        const syncResponse = await fetch('/api/niyyah/sync', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        
+        if (syncResponse.ok) {
+          const syncData = await syncResponse.json();
+          if (syncData.synced) {
+            console.log('[NiyyahHomeSection] Auto-synced journey progress (periodic):', syncData);
+            // Refresh journey data after successful sync
+            const updated = await fetchJourney();
+            if (updated) {
+              setJourney(updated);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[NiyyahHomeSection] Failed to auto-sync (periodic):', error);
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, [isLoggedIn, journey]);
 
   useEffect(() => {
     async function loadData() {
@@ -270,6 +337,8 @@ export default function NiyyahHomeSection({
       return;
     }
     const p = getTodayPortion(journey);
+    // Store timestamp to track when reading started
+    sessionStorage.setItem('niyyah_reading_started', Date.now().toString());
     onOpenReader(p.start.surahId, `verse-${p.start.verseNumber}`);
   }
 
