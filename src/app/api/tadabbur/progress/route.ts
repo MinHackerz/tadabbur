@@ -27,12 +27,10 @@ export async function PUT(req: NextRequest) {
 
     // Handle different actions
     if (action === "complete_day") {
-      // Check if 24 hours have passed since last completion
-      // Skip timer check in development mode if BYPASS_TIMER is set
-      const bypassTimer = process.env.BYPASS_TADABBUR_TIMER === "true";
+      // Check if 24 hours have passed since last completion (only if timer is enabled)
       const timeCheck = getTimeUntilNextDay(progress.lastCompletedAt);
       
-      if (!timeCheck.canUnlock && progress.completedDays.length > 0 && !bypassTimer) {
+      if (progress.timerEnabled && !timeCheck.canUnlock && progress.completedDays.length > 0) {
         return NextResponse.json({
           error: "Next day not yet unlocked",
           hoursRemaining: timeCheck.hoursRemaining,
@@ -86,6 +84,15 @@ export async function PUT(req: NextRequest) {
       const updated = await prisma.tadabburUserProgress.update({
         where: { id: progressId },
         data: { duaLearned: !progress.duaLearned },
+      });
+
+      return NextResponse.json({ progress: updated });
+    }
+
+    if (action === "toggle_timer") {
+      const updated = await prisma.tadabburUserProgress.update({
+        where: { id: progressId },
+        data: { timerEnabled: !progress.timerEnabled },
       });
 
       return NextResponse.json({ progress: updated });

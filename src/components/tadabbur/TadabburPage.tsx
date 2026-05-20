@@ -33,6 +33,7 @@ interface TadabburProgress {
   personalStatement: string | null;
   verseMemorised: boolean;
   duaLearned: boolean;
+  timerEnabled: boolean;
   journals: Array<{ day: number; content: string; isPublic: boolean; region: string | null }>;
   actions: Array<{ day: number; completed: boolean; note: string | null }>;
 }
@@ -222,13 +223,36 @@ export default function TadabburPage({ isLoggedIn }: Props) {
                   completedDays={completedDays}
                   currentDay={currentDay}
                   lastCompletedAt={progress.lastCompletedAt ? new Date(progress.lastCompletedAt) : null}
+                  timerEnabled={progress.timerEnabled}
                   onDayClick={(day) => {
                     setSelectedDay(day);
                     setIsReadOnly(!completedDays.includes(day) && day !== currentDay);
                   }}
                 />
-                <div className="text-center text-[13px] text-ink-tertiary mt-4">
-                  Day {currentDay} of 15 · {completedDays.length} days complete
+                <div className="flex items-center justify-center gap-4 text-[13px] text-ink-tertiary mt-4">
+                  <span>Day {currentDay} of 15 · {completedDays.length} days complete</span>
+                  <span className="text-border">|</span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await fetch("/api/tadabbur/progress", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            progressId: progress.id,
+                            action: "toggle_timer",
+                          }),
+                        });
+                        await loadTadabburData();
+                      } catch (error) {
+                        console.error("Failed to toggle timer:", error);
+                      }
+                    }}
+                    className="flex items-center gap-2 text-accent hover:text-accent-hover transition-colors"
+                  >
+                    <span className="text-[16px]">{progress.timerEnabled ? "⏱️" : "🚀"}</span>
+                    <span>{progress.timerEnabled ? "15-Day Mode" : "Self-Paced"}</span>
+                  </button>
                 </div>
               </div>
 

@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
             personalStatement: userProgress.personalStatement,
             verseMemorised: userProgress.verseMemorised,
             duaLearned: userProgress.duaLearned,
+            timerEnabled: userProgress.timerEnabled,
             journals: userProgress.journals.map((j: any) => ({
               day: j.day,
               content: j.content,

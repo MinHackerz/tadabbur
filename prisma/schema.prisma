@@ -221,6 +221,7 @@ model TadabburUserProgress {
   personalStatement String?   @map("personal_statement")
   verseMemorised    Boolean   @default(false) @map("verse_memorised")
   duaLearned        Boolean   @default(false) @map("dua_learned")
+  timerEnabled      Boolean   @default(true) @map("timer_enabled")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
 

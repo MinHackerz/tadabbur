@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { createClients } from "@/lib/sdk";
+import { getConfig } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_TRANSLATION_ID = 131; // Dr. Mustafa Khattab - The Clear Quran
+// Use the app's configured translation IDs
+const getTranslationId = () => {
+  const config = getConfig();
+  return config.translationIds[0] ?? 85; // Default to Abdel Haleem
+};
 
 export async function GET(
   request: NextRequest,
@@ -14,6 +19,8 @@ export async function GET(
     const { verseKey } = await context.params;
     const sessionContext = await getSession(request);
     const { serverClient } = await createClients(sessionContext.session);
+    
+    const translationId = getTranslationId();
 
     // Parse verse key (e.g., "2:286" -> chapter 2, verse 286)
     const [chapterStr, verseStr] = verseKey.split(":");
@@ -28,13 +35,14 @@ export async function GET(
     }
 
     // Fetch the specific verse with translation
+    // For shorter chapters, always use page 1
     const response = await serverClient.content.v4.verses.byChapter(chapterId, {
       fields: {
         textUthmani: true,
       },
-      page: Math.ceil(verseNumber / 50), // 50 verses per page
-      perPage: 50,
-      translations: [DEFAULT_TRANSLATION_ID],
+      page: 1, // Always fetch from page 1 for simplicity
+      perPage: 300, // Increase to cover all verses in any chapter
+      translations: [translationId],
       words: false,
     });
 
@@ -56,14 +64,21 @@ export async function GET(
       );
     }
 
-    // Extract translation
+    // Extract translation - check multiple possible field names
     const translations = Array.isArray(verse.translations) ? verse.translations : [];
     const translation = translations.find((t: any) => {
       const resourceId = t.resourceId ?? t.resource_id;
-      return resourceId === DEFAULT_TRANSLATION_ID;
+      return resourceId === translationId;
     });
 
-    const translationText = translation?.text ?? null;
+    // Try multiple possible field names for translation text
+    let translationText = translation?.text ?? translation?.translationText ?? null;
+    
+    // If still null, try the first translation available
+    if (!translationText && translations.length > 0) {
+      translationText = translations[0]?.text ?? translations[0]?.translationText ?? null;
+    }
+
     const arabicText = verse.textUthmani ?? verse.text_uthmani ?? null;
 
     return NextResponse.json({
@@ -74,9 +89,10 @@ export async function GET(
       chapterId: parseInt(chapterId, 10),
     });
   } catch (error) {
-    console.error("[/api/verse/[verseKey] GET]", error);
+    console.error("[/api/verse/[verseKey] GET] Error:", error);
+    console.error("[/api/verse/[verseKey] GET] Error stack:", error instanceof Error ? error.stack : 'No stack');
     return NextResponse.json(
-      { error: "Failed to fetch verse data" },
+      { error: "Failed to fetch verse data", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

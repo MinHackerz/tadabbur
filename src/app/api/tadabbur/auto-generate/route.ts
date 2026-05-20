@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    const TARGET_ACTIVE_CIRCLES = 4;
+    const TARGET_ACTIVE_CIRCLES = 10; // Generate 10 unique circles
     
     // Check currently active circles AND upcoming circles (within next 15 days)
     // This ensures we maintain a pipeline of circles and generate new ones as they complete

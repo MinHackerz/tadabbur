@@ -23,8 +23,13 @@ export default function Day1Recitation({ verseKey, audioUrl, onJournalSave, exis
     const handleEnded = () => {
       if (playCount < 7) {
         setPlayCount(prev => prev + 1);
-        audio.currentTime = 0;
-        audio.play();
+        // Only replay if we haven't reached 7 plays yet
+        if (playCount + 1 < 7) {
+          audio.currentTime = 0;
+          audio.play();
+        } else {
+          setIsPlaying(false);
+        }
       } else {
         setIsPlaying(false);
       }

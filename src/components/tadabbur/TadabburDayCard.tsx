@@ -46,14 +46,14 @@ interface Props {
 export default function TadabburDayCard({ day, verseKey, circleId, verse, progress, onBack, onComplete, isReadOnly = false }: Props) {
   const angle = DAILY_ANGLES[day - 1];
   const [completing, setCompleting] = useState(false);
-  const bypassTimer = process.env.NEXT_PUBLIC_BYPASS_TADABBUR_TIMER === "true";
 
   const isCompleted = progress?.completedDays?.includes(day);
   const isLastDay = day === 15;
+  const timerEnabled = progress?.timerEnabled ?? true;
 
   // Check if this day is locked (for showing timer)
   const isDayLocked = () => {
-    if (bypassTimer) return false;
+    if (!timerEnabled) return false;
     if (day === 1) return false;
     if (!progress?.completedDays?.includes(day - 1)) return true;
     if (!progress?.lastCompletedAt) return false;

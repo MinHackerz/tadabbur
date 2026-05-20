@@ -7,17 +7,17 @@ interface Props {
   currentDay: number;
   onDayClick: (day: number) => void;
   lastCompletedAt?: Date | null;
+  timerEnabled?: boolean;
 }
 
-export default function ConstellationProgress({ completedDays, currentDay, onDayClick, lastCompletedAt }: Props) {
+export default function ConstellationProgress({ completedDays, currentDay, onDayClick, lastCompletedAt, timerEnabled = true }: Props) {
   const totalDays = 15;
   const stars = Array.from({ length: totalDays }, (_, i) => i + 1);
-  const bypassTimer = process.env.NEXT_PUBLIC_BYPASS_TADABBUR_TIMER === "true";
 
   // Check if a day is locked (24-hour timer)
   function isDayLocked(day: number): boolean {
-    // If timer is bypassed, no days are locked
-    if (bypassTimer) return false;
+    // If timer is disabled, no days are locked
+    if (!timerEnabled) return false;
     
     if (day === 1) return false; // Day 1 is never locked
     if (!completedDays.includes(day - 1)) return true; // Previous day not completed
