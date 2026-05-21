@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { DAILY_ANGLES } from "@/lib/tadabbur-data";
 import { useVerseData } from "@/hooks/useVerseData";
 import TadabburCircleCard from "./TadabburCircleCard";
@@ -42,6 +43,25 @@ interface Props {
   isLoggedIn: boolean;
 }
 
+/**
+ * Loading skeleton that matches the rough shape of the active view, so
+ * navigating between days/circles doesn't flash the home/list view while
+ * the per-verse data is fetched.
+ */
+function ViewSkeleton() {
+  return (
+    <PageContent>
+      <div className="max-w-5xl mx-auto animate-pulse">
+        <div className="h-8 w-32 bg-border/50 rounded mb-6" />
+        <div className="h-20 bg-border/30 rounded-xl mb-6" />
+        <div className="h-48 bg-border/30 rounded-2xl mb-8" />
+        <div className="h-32 bg-border/30 rounded-2xl mb-8" />
+        <div className="h-40 bg-border/30 rounded-2xl" />
+      </div>
+    </PageContent>
+  );
+}
+
 export default function TadabburPage({ isLoggedIn }: Props) {
   const [circles, setCircles] = useState<TadabburCircle[]>([]);
   const [selectedCircle, setSelectedCircle] = useState<TadabburCircle | null>(null);
@@ -49,55 +69,53 @@ export default function TadabburPage({ isLoggedIn }: Props) {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // useSearchParams() makes URL→state reactive. Clicking the "Tadabbur" nav
+  // link from a deep-link URL (e.g. /tadabbur?circle=…&day=…) navigates to
+  // /tadabbur with no params; this effect picks that up and resets the view.
+  const searchParams = useSearchParams();
+  const urlCircleId = searchParams.get("circle");
+  const urlDayParam = searchParams.get("day");
+
   const { verse, loading: verseLoading } = useVerseData(selectedCircle?.verseKey || "");
 
   useEffect(() => {
     loadTadabburData();
   }, [isLoggedIn]);
 
-  // Handle URL parameters for direct navigation. Defer the setState chain
-  // to a microtask so react-hooks/set-state-in-effect doesn't flag the
-  // synchronous setters in the effect body.
+  // Sync component state with URL search params. Reacts to Next.js navigation
+  // (Link clicks, browser back/forward) instead of only firing when our own
+  // setState triggers a re-render.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const params = new URLSearchParams(window.location.search);
-    const circleId = params.get('circle');
-    const dayParam = params.get('day');
-
     let cancelled = false;
     Promise.resolve().then(() => {
       if (cancelled) return;
 
-      // Only navigate if we have URL params AND we're not already showing that view
-      if (circleId && circles.length > 0) {
-        const circle = circles.find((c) => c.id === circleId);
-
-        if (circle) {
-          // If we have a day parameter, navigate to that day
-          if (dayParam) {
-            const day = parseInt(dayParam, 10);
-            if (
-              day >= 1 &&
-              day <= 15 &&
-              (selectedCircle?.id !== circleId || selectedDay !== day)
-            ) {
-              setSelectedCircle(circle);
-              setSelectedDay(day);
-              setIsReadOnly(false);
-            }
-          }
-          // If we only have circle parameter, show circle view
-          else if (selectedCircle?.id !== circleId || selectedDay !== null) {
-            setSelectedCircle(circle);
-            setSelectedDay(null);
-            setIsReadOnly(false);
-          }
+      // Both empty: top-level /tadabbur — clear any deep-link selection.
+      if (!urlCircleId && !urlDayParam) {
+        if (selectedCircle !== null || selectedDay !== null) {
+          setSelectedCircle(null);
+          setSelectedDay(null);
+          setIsReadOnly(false);
         }
+        return;
       }
-      // If no URL params, clear selection to show home
-      else if (!circleId && (selectedCircle !== null || selectedDay !== null)) {
-        setSelectedCircle(null);
+
+      // Wait until we've loaded the circles before resolving the deep link.
+      if (!urlCircleId || circles.length === 0) return;
+
+      const circle = circles.find((c) => c.id === urlCircleId);
+      if (!circle) return;
+
+      if (urlDayParam) {
+        const day = parseInt(urlDayParam, 10);
+        if (!Number.isFinite(day) || day < 1 || day > 15) return;
+        if (selectedCircle?.id !== urlCircleId || selectedDay !== day) {
+          setSelectedCircle(circle);
+          setSelectedDay(day);
+          setIsReadOnly(false);
+        }
+      } else if (selectedCircle?.id !== urlCircleId || selectedDay !== null) {
+        setSelectedCircle(circle);
         setSelectedDay(null);
         setIsReadOnly(false);
       }
@@ -106,7 +124,7 @@ export default function TadabburPage({ isLoggedIn }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [circles, selectedCircle, selectedDay]);
+  }, [circles, urlCircleId, urlDayParam, selectedCircle, selectedDay]);
 
   async function loadTadabburData() {
     try {
@@ -192,10 +210,16 @@ export default function TadabburPage({ isLoggedIn }: Props) {
     );
   }
 
-  // Removed sign-in gate - non-authenticated users can now view circles
+  // While the user has selected a circle/day but the per-verse data is still
+  // loading, show a structural skeleton instead of falling through to the
+  // "all circles" home list. The previous behaviour briefly flashed the home
+  // page during navigation.
+  if (selectedCircle && (verseLoading || !verse)) {
+    return <ViewSkeleton />;
+  }
 
   // Show day view
-  if (selectedDay !== null && selectedCircle && verse && !verseLoading) {
+  if (selectedDay !== null && selectedCircle && verse) {
     return (
       <TadabburDayCard
         day={selectedDay}
@@ -222,7 +246,7 @@ export default function TadabburPage({ isLoggedIn }: Props) {
   }
 
   // Show circle detail view
-  if (selectedCircle && verse && !verseLoading) {
+  if (selectedCircle && verse) {
     const progress = selectedCircle.userProgress;
     const currentDay = progress?.currentDay ?? 1;
     const completedDays = progress?.completedDays ?? [];

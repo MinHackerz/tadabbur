@@ -15,27 +15,44 @@ interface Props {
   verseTranslation: string;
 }
 
+/**
+ * Pull the most descriptive keywords out of an English translation. We
+ * filter out common stopwords and very short words, then keep the longest
+ * unique tokens (which tend to be the most distinctive concepts in the
+ * verse). The result is a small phrase suitable for a full-text search.
+ */
 function extractKeyWords(text: string): string {
-  // Remove quotes and common words
-  const commonWords = new Set([
+  const stopWords = new Set([
     "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
     "of", "with", "by", "from", "as", "is", "was", "are", "were", "be",
     "been", "being", "have", "has", "had", "do", "does", "did", "will",
     "would", "should", "could", "may", "might", "must", "can", "shall",
     "who", "which", "what", "where", "when", "why", "how", "this", "that",
     "these", "those", "i", "you", "he", "she", "it", "we", "they", "them",
-    "their", "his", "her", "its", "our", "your",
+    "their", "his", "her", "its", "our", "your", "not", "no", "so", "if",
+    "into", "upon", "against", "before", "after", "than", "then", "there",
+    "here", "all", "some", "any", "such", "those", "say", "said", "indeed",
   ]);
 
+  const seen = new Set<string>();
   const words = text
     .toLowerCase()
-    .replace(/["""'']/g, "") // Remove quotes
-    .replace(/[^\w\s]/g, " ") // Replace punctuation with spaces
+    .replace(/<[^>]+>/g, " ") // strip any HTML
+    .replace(/[\u201c\u201d\u2018\u2019"']/g, "") // smart and ASCII quotes
+    .replace(/[^\p{L}\s]/gu, " ") // drop punctuation/numbers
     .split(/\s+/)
-    .filter((w) => w.length > 3 && !commonWords.has(w));
+    .filter((w) => {
+      if (w.length <= 3) return false;
+      if (stopWords.has(w)) return false;
+      if (seen.has(w)) return false;
+      seen.add(w);
+      return true;
+    });
 
-  // Take the first 3-5 meaningful words
-  return words.slice(0, 4).join(" ");
+  // Prefer the longer/more distinctive tokens — short generic words rarely
+  // help full-text search.
+  words.sort((a, b) => b.length - a.length);
+  return words.slice(0, 5).join(" ");
 }
 
 export default function Day9VerseToVerse({ verseTranslation }: Props) {
@@ -55,20 +72,28 @@ export default function Day9VerseToVerse({ verseTranslation }: Props) {
       setSearchQuery(query);
     });
 
-    const params = new URLSearchParams({
-      q: query,
-      size: "12",
-      language: "en",
-      filter_translations: "85",
-    });
+    if (!query) {
+      Promise.resolve().then(() => {
+        if (!cancelled) {
+          setResults([]);
+          setLoading(false);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
 
-    fetch(
-      `https://api.qurancdn.com/api/qdc/search?${params.toString()}`,
-      {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(10_000),
-      },
-    )
+    // Use the same search endpoint that powers /search. It handles the app
+    // token, translation filtering and abuse limits in one place. The
+    // public Quran CDN endpoint we used previously sometimes returned
+    // empty results for short queries.
+    const params = new URLSearchParams({ query, tr: "85" });
+
+    fetch(`/api/search?${params.toString()}`, {
+      credentials: "include",
+      signal: AbortSignal.timeout(10_000),
+    })
       .then((response) => {
         if (!response.ok) {
           throw new Error(
@@ -79,20 +104,34 @@ export default function Day9VerseToVerse({ verseTranslation }: Props) {
       })
       .then((data) => {
         if (cancelled) return;
-        if (data.search?.results) {
-          const parsedResults = (data.search.results as Array<{
-            verse_key: string;
-            text: string;
-            translations?: Array<{ text: string; resource_name: string }>;
-          }>).map((result) => ({
-            verse_key: result.verse_key,
-            text: result.text,
-            translations: result.translations || [],
-          }));
-          setResults(parsedResults);
-        } else {
-          setResults([]);
-        }
+        const items = Array.isArray(data?.verseItems) ? data.verseItems : [];
+        const parsedResults: SearchResult[] = items
+          .map(
+            (item: {
+              verseKey?: string | null;
+              text?: string;
+              subtitle?: string | null;
+            }) => {
+              // The /api/search endpoint maps fields as:
+              //   subtitle = Arabic words joined
+              //   text     = English translation
+              //   verseKey = "<surah>:<verse>"
+              const verseKey = item.verseKey ?? "";
+              const arabic = (item.subtitle ?? "").trim();
+              const englishTranslation = (item.text ?? "").trim();
+              if (!verseKey) return null;
+              return {
+                verse_key: verseKey,
+                text: arabic,
+                translations: englishTranslation
+                  ? [{ text: englishTranslation, resource_name: "" }]
+                  : [],
+              };
+            },
+          )
+          .filter((r: SearchResult | null): r is SearchResult => r !== null)
+          .slice(0, 12);
+        setResults(parsedResults);
       })
       .catch((err) => {
         if (cancelled) return;

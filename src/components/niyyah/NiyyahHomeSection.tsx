@@ -392,23 +392,27 @@ export default function NiyyahHomeSection({
 
   return (
     <section className="niyyah-scope text-ny-charcoal">
-      {!hydrated || migrating ? (
+      {/*
+        Render decisions, in priority order:
+        1) `migrating` — one-off localStorage→DB upgrade. Show a sync notice.
+        2) `journey` exists — render the dashboard.
+        3) Logged out OR hydration finished with no journey — render the
+           empty hero + journey selector.
+        4) Logged in but still hydrating — show a hero-shaped skeleton so
+           the page top doesn't pop in seconds after the rest of the page.
+
+        Importantly: the empty-hero CTA renders immediately for the most
+        common case (logged-out users hitting a fresh tab) instead of being
+        gated behind a database round-trip.
+      */}
+      {migrating ? (
         <div
           aria-hidden
           className="rounded-3xl border border-ny-charcoal/10 bg-ny-cream h-[18rem] animate-pulse mb-8 flex items-center justify-center"
         >
-          {migrating && (
-            <p className="text-ny-sage text-sm">Syncing your journey to the cloud...</p>
-          )}
+          <p className="text-ny-sage text-sm">Syncing your journey to the cloud…</p>
         </div>
-      ) : !journey ? (
-        <>
-          <EmptyHero />
-          
-          <SectionTitle eyebrow="Set your niyyah" title="Choose your journey" />
-          <JourneyTypeSelector onSelect={handleSelectType} />
-        </>
-      ) : (
+      ) : journey ? (
         <>
           <DedicationHero journey={journey} daysCompleted={journey.completedDays?.length ?? 0} />
 
@@ -443,6 +447,17 @@ export default function NiyyahHomeSection({
             </button>
           </div>
         </>
+      ) : !isLoggedIn || hydrated ? (
+        <>
+          <EmptyHero />
+          <SectionTitle eyebrow="Set your niyyah" title="Choose your journey" />
+          <JourneyTypeSelector onSelect={handleSelectType} />
+        </>
+      ) : (
+        <div
+          aria-hidden
+          className="rounded-3xl border border-ny-charcoal/10 bg-ny-cream h-[18rem] animate-pulse mb-8"
+        />
       )}
 
       {/* ── Companion verses (Verse of Day + Mood) ────────────── */}

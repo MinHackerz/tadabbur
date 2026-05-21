@@ -78,12 +78,14 @@ export function useVerseData(verseKey: string): UseVerseDataResult {
 
         const chapter = chapterData.chapter;
 
-        let translation: string = verseData.translation || "";
-        translation = translation.replace(/<[^>]+>/g, "");
-        const wordsArray = translation.split(/\s+/);
-        if (wordsArray.length > 15) {
-          translation = wordsArray.slice(0, 15).join(" ") + "...";
-        }
+        // Strip HTML tags from the upstream translation but keep the full
+        // text. Consumers that need a short label can truncate at the
+        // display layer; downstream features (verse-to-verse search, AI
+        // prompts) need the complete sentence to be useful.
+        const translation = String(verseData.translation || "").replace(
+          /<[^>]+>/g,
+          "",
+        );
 
         setVerse({
           verseKey,

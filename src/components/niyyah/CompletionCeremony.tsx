@@ -116,7 +116,81 @@ export default function CompletionCeremony({
   }
 
   function handlePrint() {
-    if (typeof window !== "undefined") window.print();
+    if (typeof window === "undefined") return;
+
+    // Render the certificate SVG into a clean popup window and trigger that
+    // window's `print()`. Using `window.print()` on the current document was
+    // typesetting both the ceremony modal AND the niyyah dashboard behind it,
+    // which produced multi-page PDFs that looked like duplicates.
+    void (async () => {
+      try {
+        const { buildCertificateSvg } = await import("@/lib/niyyahCertificate");
+        const svg = buildCertificateSvg({ journey, completionDate });
+
+        // Tiny inline HTML escape for the popup `<title>`.
+        const titleSafe = journey.recipientName
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Niyyah Gift — ${titleSafe}</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0d1916; }
+  .page {
+    width: 100vw;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  .page svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+  @page { size: auto; margin: 0; }
+  @media print {
+    html, body { background: #0d1916; }
+    .page { padding: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">${svg}</div>
+  <script>
+    // Wait for layout, then trigger the print dialog. Most browsers close
+    // the popup after the user dismisses the dialog.
+    window.addEventListener("load", function () {
+      setTimeout(function () {
+        window.focus();
+        window.print();
+      }, 250);
+    });
+    window.addEventListener("afterprint", function () { window.close(); });
+  </script>
+</body>
+</html>`;
+
+        const popup = window.open("", "_blank", "width=900,height=1200");
+        if (!popup) {
+          // Popup blocked — fall back to printing the current document.
+          window.print();
+          return;
+        }
+        popup.document.open();
+        popup.document.write(html);
+        popup.document.close();
+      } catch {
+        // Last-resort fallback if anything goes wrong loading the SVG.
+        window.print();
+      }
+    })();
   }
 
   async function handleDownloadImage() {
