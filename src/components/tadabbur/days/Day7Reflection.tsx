@@ -39,7 +39,7 @@ export default function Day7Reflection({ onPublish, existingReflection }: Props)
           Week 1 Checkpoint: Your Reflection
         </h3>
         <p className="text-[13px] text-ink-secondary">
-          You've spent a week with this verse. Share your reflection with the global Tadabbur community. 
+          You&apos;ve spent a week with this verse. Share your reflection with the global Tadabbur community. 
           Your words might be exactly what someone else needs to hear.
         </p>
       </div>

@@ -1,10 +1,9 @@
-const STORAGE_KEY = "tadabbur-spiritual-pulse";
-
 /**
- * IMPORTANT: Spiritual pulse check-ins should only be tracked for authenticated users.
- * This localStorage implementation is deprecated and should migrate to server-side storage.
- * 
- * TODO: Migrate to Neon DB (spiritual_pulse_checkins table)
+ * Static metadata for the "How is your heart?" prompt in `CompanionPanel`.
+ *
+ * The localStorage-backed pulse-tracking helpers that used to live here have
+ * been removed: they were deprecated and only referenced by dead components.
+ * If pulse check-ins ever come back, store them server-side per AGENTS.md.
  */
 
 export const SPIRITUAL_EMOTIONS = {
@@ -101,7 +100,8 @@ export const SPIRITUAL_EMOTIONS = {
   patient: {
     label: "Patient",
     arabic: "وَاصْبِرْ فَإِنَّ اللَّهَ لَا يُضِيعُ أَجْرَ الْمُحْسِنِينَ",
-    translation: "And be patient, for indeed, Allah does not allow to be lost the reward of those who do good.",
+    translation:
+      "And be patient, for indeed, Allah does not allow to be lost the reward of those who do good.",
     ref: "11:115",
     surah: 11,
     verse: 115,
@@ -150,8 +150,10 @@ export const SPIRITUAL_EMOTIONS = {
   },
   content: {
     label: "Content",
-    arabic: "أَلَا إِنَّ أَوْلِيَاءَ اللَّهِ لَا خَوْفٌ عَلَيْهِمْ وَلَا هُمْ يَحْزَنُونَ",
-    translation: "Unquestionably, [for] the allies of Allah there will be no fear concerning them, nor will they grieve.",
+    arabic:
+      "أَلَا إِنَّ أَوْلِيَاءَ اللَّهِ لَا خَوْفٌ عَلَيْهِمْ وَلَا هُمْ يَحْزَنُونَ",
+    translation:
+      "Unquestionably, [for] the allies of Allah there will be no fear concerning them, nor will they grieve.",
     ref: "10:62",
     surah: 10,
     verse: 62,
@@ -161,76 +163,3 @@ export const SPIRITUAL_EMOTIONS = {
 } as const;
 
 export type PulseKey = keyof typeof SPIRITUAL_EMOTIONS;
-
-interface PulseState {
-  todayDate: string | null;
-  todayPulse: PulseKey | null;
-  checkInDates: string[];
-}
-
-const DEFAULT_STATE: PulseState = {
-  todayDate: null,
-  todayPulse: null,
-  checkInDates: [],
-};
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function load(): PulseState {
-  if (typeof window === "undefined") return DEFAULT_STATE;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_STATE;
-  }
-}
-
-function save(state: PulseState) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function resetTodayIfNeeded(state: PulseState): PulseState {
-  const today = todayKey();
-  if (state.todayDate === today) return state;
-  return { ...state, todayDate: today, todayPulse: null };
-}
-
-/**
- * @deprecated Returns empty state. Spiritual pulse should only be tracked for authenticated users.
- */
-export function getSpiritualPulseState(): PulseState {
-  return DEFAULT_STATE;
-}
-
-/**
- * @deprecated This function uses localStorage which should not be used for user data.
- */
-export function recordSpiritualPulse(key: PulseKey): PulseState {
-  console.warn('[DEPRECATED] recordSpiritualPulse: Spiritual pulse should only be tracked for authenticated users');
-  return DEFAULT_STATE;
-}
-
-/**
- * @deprecated This function uses localStorage which should not be used for user data.
- */
-export function clearTodaySpiritualPulse(): PulseState {
-  console.warn('[DEPRECATED] clearTodaySpiritualPulse: Spiritual pulse should only be tracked for authenticated users');
-  return DEFAULT_STATE;
-}
-
-/** Unique check-in days in the last 7 calendar days (including today). */
-export function pulseCheckInsThisWeek(checkInDates: string[]): number {
-  const today = new Date();
-  const keys = new Set<string>();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    keys.add(d.toISOString().slice(0, 10));
-  }
-  return checkInDates.filter((d) => keys.has(d)).length;
-}

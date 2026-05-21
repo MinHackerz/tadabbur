@@ -15,6 +15,29 @@ interface Props {
   verseTranslation: string;
 }
 
+function extractKeyWords(text: string): string {
+  // Remove quotes and common words
+  const commonWords = new Set([
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "as", "is", "was", "are", "were", "be",
+    "been", "being", "have", "has", "had", "do", "does", "did", "will",
+    "would", "should", "could", "may", "might", "must", "can", "shall",
+    "who", "which", "what", "where", "when", "why", "how", "this", "that",
+    "these", "those", "i", "you", "he", "she", "it", "we", "they", "them",
+    "their", "his", "her", "its", "our", "your",
+  ]);
+
+  const words = text
+    .toLowerCase()
+    .replace(/["""'']/g, "") // Remove quotes
+    .replace(/[^\w\s]/g, " ") // Replace punctuation with spaces
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !commonWords.has(w));
+
+  // Take the first 3-5 meaningful words
+  return words.slice(0, 4).join(" ");
+}
+
 export default function Day9VerseToVerse({ verseTranslation }: Props) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,81 +45,69 @@ export default function Day9VerseToVerse({ verseTranslation }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    searchSimilarVerses();
-  }, [verseTranslation]);
+    let cancelled = false;
+    const query = extractKeyWords(verseTranslation);
 
-  async function searchSimilarVerses() {
-    try {
+    Promise.resolve().then(() => {
+      if (cancelled) return;
       setLoading(true);
       setError(null);
-
-      // Extract key words from translation for search
-      const query = extractKeyWords(verseTranslation);
       setSearchQuery(query);
+    });
 
-      // Use the Quran CDN search API directly (same as search page)
-      const params = new URLSearchParams({
-        q: query,
-        size: "12",
-        language: "en",
-        filter_translations: "85", // Default translation ID
+    const params = new URLSearchParams({
+      q: query,
+      size: "12",
+      language: "en",
+      filter_translations: "85",
+    });
+
+    fetch(
+      `https://api.qurancdn.com/api/qdc/search?${params.toString()}`,
+      {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(10_000),
+      },
+    )
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Search failed: ${response.status} ${response.statusText}`,
+          );
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data.search?.results) {
+          const parsedResults = (data.search.results as Array<{
+            verse_key: string;
+            text: string;
+            translations?: Array<{ text: string; resource_name: string }>;
+          }>).map((result) => ({
+            verse_key: result.verse_key,
+            text: result.text,
+            translations: result.translations || [],
+          }));
+          setResults(parsedResults);
+        } else {
+          setResults([]);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[Day9VerseToVerse] Search error:", err);
+        setError(err instanceof Error ? err.message : "An error occurred");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
       });
 
-      const response = await fetch(
-        `https://api.qurancdn.com/api/qdc/search?${params.toString()}`,
-        {
-          headers: { Accept: "application/json" },
-          signal: AbortSignal.timeout(10_000),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Parse the search results
-      if (data.search?.results) {
-        const parsedResults = data.search.results.map((result: any) => ({
-          verse_key: result.verse_key,
-          text: result.text,
-          translations: result.translations || [],
-        }));
-        setResults(parsedResults);
-      } else {
-        setResults([]);
-      }
-    } catch (err) {
-      console.error("[Day9VerseToVerse] Search error:", err);
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function extractKeyWords(text: string): string {
-    // Remove quotes and common words
-    const commonWords = new Set([
-      "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-      "of", "with", "by", "from", "as", "is", "was", "are", "were", "be",
-      "been", "being", "have", "has", "had", "do", "does", "did", "will",
-      "would", "should", "could", "may", "might", "must", "can", "shall",
-      "who", "which", "what", "where", "when", "why", "how", "this", "that",
-      "these", "those", "i", "you", "he", "she", "it", "we", "they", "them",
-      "their", "his", "her", "its", "our", "your"
-    ]);
-
-    const words = text
-      .toLowerCase()
-      .replace(/["""'']/g, "") // Remove quotes
-      .replace(/[^\w\s]/g, " ") // Replace punctuation with spaces
-      .split(/\s+/)
-      .filter(w => w.length > 3 && !commonWords.has(w));
-
-    // Take the first 3-5 meaningful words
-    return words.slice(0, 4).join(" ");
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [verseTranslation]);
 
   if (loading) {
     return (
@@ -115,7 +126,7 @@ export default function Day9VerseToVerse({ verseTranslation }: Props) {
         <p className="text-[14px] text-danger font-semibold mb-2">Search Error</p>
         <p className="text-[13px] text-danger">{error}</p>
         <button
-          onClick={searchSimilarVerses}
+          onClick={() => window.location.reload()}
           className="mt-4 px-4 py-2 bg-danger text-white rounded-lg text-[13px] font-semibold hover:bg-danger/90 transition-colors"
         >
           Try Again
@@ -132,7 +143,7 @@ export default function Day9VerseToVerse({ verseTranslation }: Props) {
         </h3>
         <p className="text-[13px] text-ink-secondary mb-3">
           The Quran explains itself. These verses share similar themes, words, or messages. 
-          Together, they illuminate each other's meaning.
+          Together, they illuminate each other&apos;s meaning.
         </p>
         {searchQuery && (
           <div className="mt-3 pt-3 border-t border-accent/20">
@@ -140,7 +151,7 @@ export default function Day9VerseToVerse({ verseTranslation }: Props) {
               Search Keywords
             </p>
             <p className="text-[13px] text-accent font-medium">
-              "{searchQuery}"
+              &quot;{searchQuery}&quot;
             </p>
           </div>
         )}
@@ -214,12 +225,12 @@ export default function Day9VerseToVerse({ verseTranslation }: Props) {
           <div className="text-[20px]">🔗</div>
           <div>
             <h4 className="text-[14px] font-semibold text-ink mb-2">
-              The Quran's Internal Coherence
+              The Quran&apos;s Internal Coherence
             </h4>
             <p className="text-[13px] text-ink-secondary leading-relaxed">
               One of the miracles of the Quran is how verses across different surahs and contexts 
               complement and explain each other. This internal consistency is a sign of divine authorship. 
-              The scholars call this "Tafsir bil-Quran" — explaining the Quran with the Quran itself.
+              The scholars call this &quot;Tafsir bil-Quran&quot; — explaining the Quran with the Quran itself.
             </p>
           </div>
         </div>

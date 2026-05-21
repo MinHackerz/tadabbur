@@ -147,20 +147,13 @@ export default function TadabburDayCard({ day, verseKey, circleId, verse, progre
         throw new Error("Failed to complete day");
       }
 
-      // Reload data
-      await onComplete();
-      
-      // Navigate to next day if not last day
+      // Navigate immediately without reloading data first to prevent flash
       if (!isLastDay) {
-        // Small delay to ensure data is refreshed
-        setTimeout(() => {
-          window.location.href = `/tadabbur?circle=${circleId}&day=${day + 1}`;
-        }, 300);
+        // Navigate to next day
+        window.location.href = `/tadabbur?circle=${circleId}&day=${day + 1}`;
       } else {
         // Last day - go back to circle view
-        setTimeout(() => {
-          onBack();
-        }, 300);
+        window.location.href = `/tadabbur?circle=${circleId}`;
       }
     } catch (error) {
       console.error("Failed to mark complete:", error);
@@ -277,7 +270,7 @@ export default function TadabburDayCard({ day, verseKey, circleId, verse, progre
             </svg>
             <div>
               <div className="text-[13px] font-medium text-ink">Viewing Completed Day</div>
-              <div className="text-[11px] text-ink-tertiary">You're reviewing a day you've already completed</div>
+              <div className="text-[11px] text-ink-tertiary">You&apos;re reviewing a day you&apos;ve already completed</div>
             </div>
           </div>
         )}
@@ -286,13 +279,8 @@ export default function TadabburDayCard({ day, verseKey, circleId, verse, progre
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => {
-              // Navigate back properly using URL
-              if (day > 1) {
-                window.history.pushState({}, '', `/tadabbur?circle=${circleId}&day=${day - 1}`);
-              } else {
-                window.history.pushState({}, '', `/tadabbur?circle=${circleId}`);
-              }
-              onBack();
+              // Navigate back to circle view
+              window.location.href = `/tadabbur?circle=${circleId}`;
             }}
             className="flex items-center gap-2 text-[14px] text-ink-secondary hover:text-accent transition-colors"
           >
@@ -318,7 +306,7 @@ export default function TadabburDayCard({ day, verseKey, circleId, verse, progre
             {verse.transliteration}
           </div>
           <div className="text-[13px] text-ink text-center">
-            "{verse.translation}"
+            &quot;{verse.translation}&quot;
           </div>
         </div>
 

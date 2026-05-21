@@ -3,6 +3,8 @@
  * Generates SVG certificates with QR codes for Tadabbur completion
  */
 
+import QRCode from 'qrcode';
+
 interface CertificateData {
   userName: string;
   verseKey: string;
@@ -13,28 +15,40 @@ interface CertificateData {
 }
 
 /**
- * Generate QR code as SVG
- * Simple implementation without external dependencies
+ * Generate QR code as data URL
  */
-function generateQRCodeSVG(data: string, size: number = 200): string {
-  // For production, you'd use a proper QR code library
-  // This is a placeholder that creates a simple pattern
-  // In production, use: https://www.npmjs.com/package/qrcode or similar
-  
-  const encoded = encodeURIComponent(data);
-  // Using a free QR code API service
-  return `<image href="https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}" width="${size}" height="${size}"/>`;
+async function generateQRCodeDataURL(data: string): Promise<string> {
+  try {
+    // Generate QR code as data URL
+    const qrDataUrl = await QRCode.toDataURL(data, {
+      width: 180,
+      margin: 1,
+      color: {
+        dark: '#2C3E50',
+        light: '#FFFFFF',
+      },
+    });
+    return qrDataUrl;
+  } catch (error) {
+    console.error('Failed to generate QR code:', error);
+    // Fallback to external service
+    const encoded = encodeURIComponent(data);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encoded}`;
+  }
 }
 
 /**
  * Generate certificate as SVG
  */
-export function generateCertificateSVG(data: CertificateData): string {
+export async function generateCertificateSVG(data: CertificateData): Promise<string> {
   const formattedDate = data.completedAt.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
+
+  // Generate QR code
+  const qrCodeDataUrl = await generateQRCodeDataURL(data.verificationUrl);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="1200" height="1600" viewBox="0 0 1200 1600" xmlns="http://www.w3.org/2000/svg">
@@ -69,7 +83,7 @@ export function generateCertificateSVG(data: CertificateData): string {
   
   <!-- User Name -->
   <text x="600" y="480" font-family="Georgia, serif" font-size="36" font-weight="bold" fill="#2C3E50" text-anchor="middle">
-    ${data.userName}
+    ${escapeXml(data.userName)}
   </text>
   
   <!-- Achievement Text -->
@@ -79,12 +93,12 @@ export function generateCertificateSVG(data: CertificateData): string {
   
   <!-- Verse Reference -->
   <text x="600" y="600" font-family="Georgia, serif" font-size="32" font-weight="bold" fill="#D4AF37" text-anchor="middle">
-    Quran ${data.verseKey}
+    Quran ${escapeXml(data.verseKey)}
   </text>
   
   <!-- Verse Text (truncated if too long) -->
   <text x="600" y="660" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#7F8C8D" text-anchor="middle">
-    "${data.verseText.length > 100 ? data.verseText.substring(0, 100) + '...' : data.verseText}"
+    "${escapeXml(data.verseText.length > 100 ? data.verseText.substring(0, 100) + '...' : data.verseText)}"
   </text>
   
   <!-- Journey Description -->
@@ -130,8 +144,8 @@ export function generateCertificateSVG(data: CertificateData): string {
   </text>
   
   <!-- QR Code -->
-  <g transform="translate(500, 1180)">
-    ${generateQRCodeSVG(data.verificationUrl, 180)}
+  <g transform="translate(510, 1180)">
+    <image href="${qrCodeDataUrl}" width="180" height="180"/>
   </g>
   
   <!-- QR Code Label -->
@@ -141,7 +155,7 @@ export function generateCertificateSVG(data: CertificateData): string {
   
   <!-- Certificate ID -->
   <text x="600" y="1450" font-family="Courier, monospace" font-size="12" fill="#95A5A6" text-anchor="middle">
-    Certificate ID: ${data.certificateId}
+    Certificate ID: ${escapeXml(data.certificateId.substring(0, 8))}
   </text>
   
   <!-- Footer -->
@@ -149,6 +163,18 @@ export function generateCertificateSVG(data: CertificateData): string {
     Quran Insight App • Tadabbur Program
   </text>
 </svg>`;
+}
+
+/**
+ * Escape XML special characters
+ */
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 /**
@@ -162,8 +188,8 @@ export function svgToDataUrl(svg: string): string {
 /**
  * Generate certificate filename
  */
-export function generateCertificateFilename(verseKey: string, date: Date): string {
+export function generateCertificateFilename(verseKey: string, date: Date, format: 'svg' | 'pdf' = 'pdf'): string {
   const dateStr = date.toISOString().split('T')[0];
   const verseStr = verseKey.replace(':', '-');
-  return `tadabbur-certificate-${verseStr}-${dateStr}.svg`;
+  return `tadabbur-certificate-${verseStr}-${dateStr}.${format}`;
 }

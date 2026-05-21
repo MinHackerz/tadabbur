@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 interface Props {
   verseKey: string;
   verseArabic?: string;
@@ -9,19 +11,31 @@ interface Props {
 }
 
 export default function MasteryCeremony({ verseKey, verseArabic, verseReference, personalStatement, onClose }: Props) {
+  // Lazy state initialiser runs once during the first render. The
+  // react-hooks/purity rule allows side effects (like Math.random) inside
+  // a state initialiser, but not in the render body or in useMemo.
+  const [particles] = useState(() =>
+    Array.from({ length: 30 }, () => ({
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      animationDelay: `${Math.random() * 3}s`,
+      animationDuration: `${3 + Math.random() * 2}s`,
+    })),
+  );
+
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-[#0A1628] to-[#1C3A2F] z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Animated particles */}
       <div className="absolute inset-0 overflow-hidden">
-        {Array.from({ length: 30 }).map((_, i) => (
+        {particles.map((p, i) => (
           <div
             key={i}
             className="absolute w-2 h-2 bg-tadabbur-gold rounded-full animate-float"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${3 + Math.random() * 2}s`,
+              left: p.left,
+              top: p.top,
+              animationDelay: p.animationDelay,
+              animationDuration: p.animationDuration,
             }}
           />
         ))}
@@ -58,7 +72,7 @@ export default function MasteryCeremony({ verseKey, verseArabic, verseReference,
               Your Understanding
             </div>
             <p className="font-niyyah-display text-[16px] text-white/90 italic">
-              "{personalStatement}"
+              &quot;{personalStatement}&quot;
             </p>
           </div>
         )}

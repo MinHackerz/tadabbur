@@ -7,7 +7,6 @@ import { btnSecondary, IconArrowRight, input, Label } from "@/components/ui/prim
 import ReaderAudioDock, { getPlayableVerses } from "./ReaderAudioDock";
 import ReaderSurahHero from "./ReaderSurahHero";
 import ReaderToolbar from "./ReaderToolbar";
-import { recordReadingVisit } from "@/lib/readingEngagement";
 import VerseCard from "./VerseCard";
 import VerseInsightPanel from "./VerseInsightPanel";
 import type { InsightTab } from "./insightTypes";
@@ -219,11 +218,6 @@ export default function ReaderView({
     }
     readerAudio.playSurahAt(playable, 0);
   };
-
-  useEffect(() => {
-    if (!rData) return;
-    recordReadingVisit(cid, activeVerse);
-  }, [rData, cid, activeVerse]);
 
   return (
     <div className="reader-layout pb-32 md:pb-28">

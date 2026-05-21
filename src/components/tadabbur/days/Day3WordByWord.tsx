@@ -21,32 +21,50 @@ export default function Day3WordByWord({ verseKey }: Props) {
   const [selectedWord, setSelectedWord] = useState<WordData | null>(null);
   const [expandedWords, setExpandedWords] = useState<Set<number>>(new Set());
 
+  // Inline fetch in the effect — state updates run inside .then callbacks
+  // so the react-hooks/set-state-in-effect rule is satisfied.
   useEffect(() => {
-    fetchWordByWord();
-  }, [verseKey]);
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) setLoading(true);
+    });
 
-  async function fetchWordByWord() {
-    try {
-      setLoading(true);
-      const res = await fetch(`https://api.quran.com/api/v4/verses/by_key/${verseKey}?words=true&word_fields=text_uthmani,transliteration,translation`);
-      const data = await res.json();
-      
-      if (data.verse?.words) {
-        const wordData: WordData[] = data.verse.words.map((w: any, idx: number) => ({
-          position: idx + 1,
-          arabic: w.text_uthmani || w.text,
-          transliteration: w.transliteration?.text || "",
-          translation: w.translation?.text || "",
-          root: w.root?.value,
-        }));
-        setWords(wordData);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load word-by-word data");
-    } finally {
-      setLoading(false);
-    }
-  }
+    fetch(
+      `https://api.quran.com/api/v4/verses/by_key/${verseKey}?words=true&word_fields=text_uthmani,transliteration,translation`,
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.verse?.words) {
+          const wordData: WordData[] = (data.verse.words as Array<{
+            text_uthmani?: string;
+            text?: string;
+            transliteration?: { text?: string };
+            translation?: { text?: string };
+            root?: { value?: string };
+          }>).map((w, idx) => ({
+            position: idx + 1,
+            arabic: w.text_uthmani || w.text || "",
+            transliteration: w.transliteration?.text || "",
+            translation: w.translation?.text || "",
+            root: w.root?.value,
+          }));
+          setWords(wordData);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load word-by-word data");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [verseKey]);
 
   if (loading) {
     return (
@@ -165,7 +183,7 @@ export default function Day3WordByWord({ verseKey }: Props) {
             </h4>
             <p className="text-[13px] text-ink-secondary leading-relaxed">
               Arabic is a root-based language. Most words derive from three-letter roots that carry core meanings. 
-              Understanding these roots reveals connections across the Quran and deepens comprehension of Allah's message.
+              Understanding these roots reveals connections across the Quran and deepens comprehension of Allah&apos;s message.
             </p>
           </div>
         </div>

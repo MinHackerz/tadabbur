@@ -2,7 +2,13 @@ import { NextRequest } from "next/server";
 import { getConfig } from "@/lib/env";
 import { getSession } from "@/lib/session";
 import { withSessionJson } from "@/lib/route-helpers";
-import { SUPPORTED_TRANSLATION_IDS, DEFAULT_TRANSLATION_ID, parsePositiveInteger } from "@/lib/data";
+import {
+  SUPPORTED_TRANSLATION_IDS,
+  DEFAULT_TRANSLATION_ID,
+  parsePositiveInteger,
+} from "@/lib/data";
+import { getAppToken } from "@/lib/sdk";
+import { getUserFromSession } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -112,8 +118,22 @@ function seedFromDayAndEmotion(emotion: string): number {
 }
 
 export async function GET(request: NextRequest) {
+  // Require an authenticated user. This endpoint fans out to the upstream
+  // content API (token-cost) and previously had no auth, making it an easy
+  // abuse vector. Reading verses by emotion is a logged-in feature.
   const sessionContext = await getSession(request);
-  const emotion = (request.nextUrl.searchParams.get("emotion") ?? "").trim().toLowerCase();
+  const user = await getUserFromSession(request);
+  if (!user) {
+    return withSessionJson(
+      sessionContext,
+      { error: "Unauthorized", verses: [] },
+      401,
+    );
+  }
+
+  const emotion = (request.nextUrl.searchParams.get("emotion") ?? "")
+    .trim()
+    .toLowerCase();
   const trParam = request.nextUrl.searchParams.get("tr");
   const config = getConfig();
   const trId =
@@ -126,16 +146,22 @@ export async function GET(request: NextRequest) {
   const searchQuery = EMOTION_SEARCH_QUERIES[emotion];
 
   if (!pool || !searchQuery) {
-    return withSessionJson(sessionContext, {
-      error: `Unknown emotion: ${emotion}. Valid emotions: ${Object.keys(EMOTION_VERSE_POOLS).join(", ")}.`,
-      verses: [],
-    }, 400);
+    return withSessionJson(
+      sessionContext,
+      {
+        error: `Unknown emotion: ${emotion}. Valid emotions: ${Object.keys(
+          EMOTION_VERSE_POOLS,
+        ).join(", ")}.`,
+        verses: [],
+      },
+      400,
+    );
   }
 
   const seed = seedFromDayAndEmotion(emotion);
 
   // Try to get a verse from the search API, broadening our pool.
-  let allCandidates: string[] = [...pool];
+  const allCandidates: string[] = [...pool];
   try {
     const params = new URLSearchParams({
       q: searchQuery,
@@ -148,14 +174,19 @@ export async function GET(request: NextRequest) {
       { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(5_000) },
     );
     if (resp.ok) {
-      const json = await resp.json() as { result?: { verses?: { verse_key?: string }[] } };
+      const json = (await resp.json()) as {
+        result?: { verses?: { verse_key?: string }[] };
+      };
       const fromSearch: string[] = (json.result?.verses ?? [])
         .map((v) => v.verse_key ?? "")
         .filter(Boolean);
       // Merge search results and deduplicate, keeping the curated pool as fallback.
       const seen = new Set(allCandidates);
       for (const key of fromSearch) {
-        if (!seen.has(key)) { seen.add(key); allCandidates.push(key); }
+        if (!seen.has(key)) {
+          seen.add(key);
+          allCandidates.push(key);
+        }
       }
     }
   } catch {
@@ -167,7 +198,7 @@ export async function GET(request: NextRequest) {
   const COUNT = Math.min(6, allCandidates.length);
   const pickedKeys: string[] = [];
   for (let i = 0; i < COUNT; i++) {
-    const idx = (seed + i * 7) % allCandidates.length; // Use different offsets to avoid duplicates
+    const idx = (seed + i * 7) % allCandidates.length;
     const key = allCandidates[idx];
     if (!pickedKeys.includes(key)) {
       pickedKeys.push(key);
@@ -175,17 +206,18 @@ export async function GET(request: NextRequest) {
   }
 
   // Fetch all verses in parallel
-  const contentBase = config.services?.contentBaseUrl ?? "https://apis.quran.foundation/content";
+  const contentBase =
+    config.services?.contentBaseUrl ?? "https://apis.quran.foundation/content";
   const oauth2Base = config.services?.oauth2BaseUrl ?? config.oauth2BaseUrl;
-  
+
   try {
     const token = await getAppToken(config.clientId, config.clientSecret, oauth2Base);
-    
+
     const versePromises = pickedKeys.map(async (pickedKey) => {
       const [surahIdStr, verseNumberStr] = pickedKey.split(":");
       const surahId = Number(surahIdStr);
       const verseNumber = Number(verseNumberStr);
-      
+
       try {
         const PAGE_SIZE = 50;
         const page = Math.max(1, Math.ceil(verseNumber / PAGE_SIZE));
@@ -196,7 +228,7 @@ export async function GET(request: NextRequest) {
           page: String(page),
         });
         const url = `${contentBase}/api/v4/verses/by_chapter/${surahId}?${contentParams.toString()}`;
-        
+
         const contentResp = await fetch(url, {
           headers: {
             "x-auth-token": token,
@@ -205,9 +237,15 @@ export async function GET(request: NextRequest) {
           },
           signal: AbortSignal.timeout(8_000),
         });
-        
+
         if (contentResp.ok) {
-          const data = await contentResp.json() as { verses?: { verse_number?: number; text_uthmani?: string; translations?: { text?: string }[] }[] };
+          const data = (await contentResp.json()) as {
+            verses?: {
+              verse_number?: number;
+              text_uthmani?: string;
+              translations?: { text?: string }[];
+            }[];
+          };
           const verse = (data.verses ?? []).find((v) => v.verse_number === verseNumber);
           if (verse) {
             return {
@@ -215,19 +253,23 @@ export async function GET(request: NextRequest) {
               surahId,
               verseNumber,
               arabicText: verse.text_uthmani ?? null,
-              translationText: verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "") ?? null,
+              translationText:
+                verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "") ?? null,
             };
           }
         }
-      } catch (err) {
+      } catch {
         // Silently fail - graceful degradation
       }
-      
+
       return null;
     });
 
-    const fetchedVerses = (await Promise.all(versePromises)).filter((v): v is NonNullable<typeof v> => v !== null && v.arabicText !== null && v.translationText !== null);
-    
+    const fetchedVerses = (await Promise.all(versePromises)).filter(
+      (v): v is NonNullable<typeof v> =>
+        v !== null && v.arabicText !== null && v.translationText !== null,
+    );
+
     // Return exactly 2 verses
     if (fetchedVerses.length >= 2) {
       const result: EmotionVerseResult = {
@@ -236,7 +278,7 @@ export async function GET(request: NextRequest) {
       };
       return withSessionJson(sessionContext, result);
     }
-  } catch (error) {
+  } catch {
     // Silently fail - will fall through to fallback
   }
 
@@ -255,26 +297,4 @@ export async function GET(request: NextRequest) {
     }),
     error: "Could not fetch verses. Please check your connection.",
   });
-}
-
-// --- helpers ---
-
-let _token: { value: string; expiresAt: number } | null = null;
-
-async function getAppToken(clientId: string, clientSecret: string, oauth2BaseUrl: string): Promise<string> {
-  if (_token && _token.expiresAt > Date.now() + 30_000) {
-    return _token.value;
-  }
-  const resp = await fetch(`${oauth2BaseUrl}/oauth2/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: "Basic " + Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
-    },
-    body: "grant_type=client_credentials&scope=content",
-  });
-  if (!resp.ok) throw new Error(`Token request failed: ${resp.status}`);
-  const j = await resp.json() as { access_token: string; expires_in: number };
-  _token = { value: j.access_token, expiresAt: Date.now() + j.expires_in * 1000 };
-  return _token.value;
 }

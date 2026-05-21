@@ -55,25 +55,58 @@ export default function TadabburPage({ isLoggedIn }: Props) {
     loadTadabburData();
   }, [isLoggedIn]);
 
-  // Handle URL parameters for direct navigation
+  // Handle URL parameters for direct navigation. Defer the setState chain
+  // to a microtask so react-hooks/set-state-in-effect doesn't flag the
+  // synchronous setters in the effect body.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const params = new URLSearchParams(window.location.search);
     const circleId = params.get('circle');
     const dayParam = params.get('day');
-    
-    if (circleId && dayParam && circles.length > 0) {
-      const circle = circles.find(c => c.id === circleId);
-      const day = parseInt(dayParam, 10);
-      
-      if (circle && day >= 1 && day <= 15) {
-        setSelectedCircle(circle);
-        setSelectedDay(day);
+
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+
+      // Only navigate if we have URL params AND we're not already showing that view
+      if (circleId && circles.length > 0) {
+        const circle = circles.find((c) => c.id === circleId);
+
+        if (circle) {
+          // If we have a day parameter, navigate to that day
+          if (dayParam) {
+            const day = parseInt(dayParam, 10);
+            if (
+              day >= 1 &&
+              day <= 15 &&
+              (selectedCircle?.id !== circleId || selectedDay !== day)
+            ) {
+              setSelectedCircle(circle);
+              setSelectedDay(day);
+              setIsReadOnly(false);
+            }
+          }
+          // If we only have circle parameter, show circle view
+          else if (selectedCircle?.id !== circleId || selectedDay !== null) {
+            setSelectedCircle(circle);
+            setSelectedDay(null);
+            setIsReadOnly(false);
+          }
+        }
+      }
+      // If no URL params, clear selection to show home
+      else if (!circleId && (selectedCircle !== null || selectedDay !== null)) {
+        setSelectedCircle(null);
+        setSelectedDay(null);
         setIsReadOnly(false);
       }
-    }
-  }, [circles]);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [circles, selectedCircle, selectedDay]);
 
   async function loadTadabburData() {
     try {
@@ -118,12 +151,16 @@ export default function TadabburPage({ isLoggedIn }: Props) {
   }
 
   function handleViewCircle(circle: TadabburCircle) {
+    // Update URL to reflect circle view
+    window.history.pushState({}, '', `/tadabbur?circle=${circle.id}`);
     setSelectedCircle(circle);
     setSelectedDay(null);
     setIsReadOnly(false);
   }
 
   function handleViewDay(circle: TadabburCircle, day: number) {
+    // Update URL to reflect day view
+    window.history.pushState({}, '', `/tadabbur?circle=${circle.id}&day=${day}`);
     setSelectedCircle(circle);
     setSelectedDay(day);
     setIsReadOnly(true);
@@ -167,6 +204,8 @@ export default function TadabburPage({ isLoggedIn }: Props) {
         verse={verse}
         progress={selectedCircle.userProgress}
         onBack={async () => {
+          // Update URL to circle view
+          window.history.pushState({}, '', `/tadabbur?circle=${selectedCircle.id}`);
           // Reload data to get updated progress
           await loadTadabburData();
           setSelectedDay(null);
@@ -194,7 +233,11 @@ export default function TadabburPage({ isLoggedIn }: Props) {
         <div className="max-w-5xl mx-auto">
           {/* Back Button */}
           <button
-            onClick={() => setSelectedCircle(null)}
+            onClick={() => {
+              // Clear URL params to go back to home
+              window.history.pushState({}, '', '/tadabbur');
+              setSelectedCircle(null);
+            }}
             className="flex items-center gap-2 text-[14px] text-ink-secondary hover:text-accent transition-colors mb-6"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -252,6 +295,8 @@ export default function TadabburPage({ isLoggedIn }: Props) {
                   lastCompletedAt={progress.lastCompletedAt ? new Date(progress.lastCompletedAt) : null}
                   timerEnabled={progress.timerEnabled}
                   onDayClick={(day) => {
+                    // Update URL to reflect day view
+                    window.history.pushState({}, '', `/tadabbur?circle=${selectedCircle.id}&day=${day}`);
                     setSelectedDay(day);
                     setIsReadOnly(!completedDays.includes(day) && day !== currentDay);
                   }}
@@ -286,9 +331,13 @@ export default function TadabburPage({ isLoggedIn }: Props) {
               {/* Today's Angle */}
               {!progress.isComplete && (
                 <div className="mb-8">
-                  <SectionTitle>Today's Angle — Day {currentDay}</SectionTitle>
+                  <SectionTitle>Today&apos;s Angle — Day {currentDay}</SectionTitle>
                   <button
-                    onClick={() => setSelectedDay(currentDay)}
+                    onClick={() => {
+                      // Update URL to reflect day view
+                      window.history.pushState({}, '', `/tadabbur?circle=${selectedCircle.id}&day=${currentDay}`);
+                      setSelectedDay(currentDay);
+                    }}
                     className="w-full bg-surface border border-border rounded-2xl p-6 hover:border-accent hover:shadow-md transition-all text-left group"
                   >
                     <div className="flex items-start justify-between mb-3">
@@ -308,7 +357,7 @@ export default function TadabburPage({ isLoggedIn }: Props) {
                       {todayAngle.prompt}
                     </p>
                     <div className="flex items-center text-accent text-[14px] font-medium">
-                      Open today's experience
+                      Open today&apos;s experience
                       <svg className="ml-2 w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                       </svg>

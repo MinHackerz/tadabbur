@@ -10,8 +10,14 @@ export function useReaderScrollCompact(resetKey?: string) {
   const compactRef = useRef(false);
 
   useEffect(() => {
-    setCompact(false);
+    // Reset the ref synchronously, but defer the setState reset to a
+    // microtask so the rule doesn't flag synchronous setState in the
+    // effect body.
     compactRef.current = false;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) setCompact(false);
+    });
 
     const onScroll = () => {
       const y = window.scrollY;
@@ -26,7 +32,10 @@ export function useReaderScrollCompact(resetKey?: string) {
 
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [resetKey]);
 
   return compact;

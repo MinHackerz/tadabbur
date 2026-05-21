@@ -26,7 +26,6 @@ import DedicationHero from "./DedicationHero";
 import GiftTokenPreview from "./GiftTokenPreview";
 import JourneyTimeline from "./JourneyTimeline";
 import JourneyTypeSelector from "./JourneyTypeSelector";
-import NiyyahSetupModal from "./NiyyahSetupModal";
 import { OrnamentDivider } from "./Ornament";
 import ProgressVessel from "./ProgressVessel";
 import RhythmStrip from "./RhythmStrip";
@@ -57,169 +56,132 @@ export default function NiyyahHomeSection({
   const [hydrated, setHydrated] = useState(false);
   const [ceremonyOpen, setCeremonyOpen] = useState(false);
   const [migrating, setMigrating] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   // Refresh journey data when user returns to the page after reading
   useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (!document.hidden && isLoggedIn && journey) {
-        // User returned to the page, try to auto-sync first
-        try {
-          const syncResponse = await fetch('/api/niyyah/sync', {
-            method: 'POST',
-            credentials: 'include',
-          });
-          
-          if (syncResponse.ok) {
-            const syncData = await syncResponse.json();
-            if (syncData.synced) {
-              console.log('[NiyyahHomeSection] Auto-synced journey progress:', syncData);
-            }
-          }
-        } catch (error) {
-          console.error('[NiyyahHomeSection] Failed to auto-sync:', error);
-        }
-        
-        // Then refresh journey data
-        const updated = await fetchJourney();
-        if (updated) {
-          setJourney(updated);
-        }
+    if (!isLoggedIn) return;
+
+    // Single source of truth for both sync paths so we don't fan out the
+    // same POSTs from three independent effects.
+    let inFlight = false;
+    let pending = false;
+
+    async function runSync(reason: string) {
+      if (inFlight) {
+        pending = true;
+        return;
       }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isLoggedIn, journey]);
-
-  // Listen for verse completion events and trigger sync
-  useEffect(() => {
-    if (!isLoggedIn || !journey) return;
-
-    let syncTimeout: NodeJS.Timeout | null = null;
-    let completionCount = 0;
-
-    const handleVerseCompleted = async () => {
-      completionCount++;
-      
-      // Clear any existing timeout
-      if (syncTimeout) {
-        clearTimeout(syncTimeout);
-      }
-
-      // Debounce: wait 3 seconds after last completion before syncing
-      // This avoids excessive API calls when user marks multiple verses quickly
-      syncTimeout = setTimeout(async () => {
-        console.log(`[NiyyahHomeSection] ${completionCount} verse(s) completed, triggering sync...`);
-        completionCount = 0;
-        
-        try {
-          const syncResponse = await fetch('/api/niyyah/sync', {
-            method: 'POST',
-            credentials: 'include',
-          });
-          
-          if (syncResponse.ok) {
-            const syncData = await syncResponse.json();
-            if (syncData.synced) {
-              console.log('[NiyyahHomeSection] Auto-synced after verse completion:', syncData);
-              // Refresh journey data
-              const updated = await fetchJourney();
-              if (updated) {
-                setJourney(updated);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('[NiyyahHomeSection] Failed to auto-sync after verse completion:', error);
-        }
-      }, 3000);
-    };
-
-    window.addEventListener('verse-completed', handleVerseCompleted);
-    
-    return () => {
-      window.removeEventListener('verse-completed', handleVerseCompleted);
-      if (syncTimeout) {
-        clearTimeout(syncTimeout);
-      }
-    };
-  }, [isLoggedIn, journey]);
-
-  // Periodic refresh to check for updates (every 30 seconds when page is visible)
-  useEffect(() => {
-    if (!isLoggedIn || !journey) return;
-
-    const intervalId = setInterval(async () => {
-      if (document.hidden) return; // Skip if page is not visible
-      
+      inFlight = true;
       try {
-        // Try to auto-sync
-        const syncResponse = await fetch('/api/niyyah/sync', {
-          method: 'POST',
-          credentials: 'include',
-        });
-        
-        if (syncResponse.ok) {
-          const syncData = await syncResponse.json();
-          if (syncData.synced) {
-            console.log('[NiyyahHomeSection] Auto-synced journey progress (periodic):', syncData);
-            // Refresh journey data after successful sync
-            const updated = await fetchJourney();
-            if (updated) {
-              setJourney(updated);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('[NiyyahHomeSection] Failed to auto-sync (periodic):', error);
-      }
-    }, 30000); // Check every 30 seconds
+        const [niyyahSync, goalSync] = await Promise.allSettled([
+          fetch("/api/niyyah/sync", { method: "POST", credentials: "include" }),
+          fetch("/api/goals/sync", { method: "POST", credentials: "include" }),
+        ]);
 
-    return () => clearInterval(intervalId);
+        let didChange = false;
+        if (niyyahSync.status === "fulfilled" && niyyahSync.value.ok) {
+          const data = (await niyyahSync.value.json()) as { synced?: boolean };
+          if (data.synced) didChange = true;
+        }
+        if (goalSync.status === "fulfilled" && goalSync.value.ok) {
+          // We just consume to release the body; goal data isn't displayed here.
+          await goalSync.value.json().catch(() => null);
+        }
+
+        if (didChange && journey) {
+          const updated = await fetchJourney();
+          if (updated) setJourney(updated);
+        }
+      } catch {
+        // Best-effort sync — ignore network/server hiccups.
+      } finally {
+        inFlight = false;
+        if (pending) {
+          pending = false;
+          // Coalesce any sync requests that arrived while we were running.
+          void runSync(`${reason}+queued`);
+        }
+      }
+    }
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) void runSync("visibility");
+    };
+
+    const handleVerseCompleted = () => {
+      // Wait for the verse-completed write storm to settle before syncing.
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => void runSync("verse-completed"), 3000);
+    };
+
+    const intervalId = setInterval(() => {
+      if (!document.hidden) void runSync("interval");
+    }, 30_000);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("verse-completed", handleVerseCompleted);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("verse-completed", handleVerseCompleted);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(intervalId);
+    };
   }, [isLoggedIn, journey]);
 
   useEffect(() => {
     async function loadData() {
-      // Check for a pending journey that was created before sign-in
+      // Check for a pending journey that was created before sign-in.
+      // We wrap the JSON.parse in try/catch — a malformed value should not
+      // wipe out the rest of this effect.
       const pendingRaw = localStorage.getItem("niyyah_pending_journey");
-      
+
       if (pendingRaw && isLoggedIn) {
         // User just signed in after creating a journey — save it to the database
         // Small delay to ensure session cookie is fully established
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        let pendingJourney: Journey | null = null;
         try {
-          const pendingJourney = JSON.parse(pendingRaw) as Journey;
-          const created = await apiCreateJourney({
-            type: pendingJourney.type,
-            recipientName: pendingJourney.recipientName,
-            occasion: pendingJourney.occasion,
-            personalDua: pendingJourney.personalDua,
-            goalType: pendingJourney.goalType,
-            goalValue: pendingJourney.goalValue,
-            readerName: pendingJourney.readerName,
-            startDate: pendingJourney.startDate,
-            targetDate: pendingJourney.targetDate,
-          });
+          pendingJourney = JSON.parse(pendingRaw) as Journey;
+        } catch {
           localStorage.removeItem("niyyah_pending_journey");
-          if (created) {
-            setJourney({
-              ...pendingJourney,
-              id: created.id ?? pendingJourney.id,
-              completedDays: created.completedDays ?? pendingJourney.completedDays ?? [],
-              currentStreak: created.currentStreak ?? 0,
-              longestStreak: created.longestStreak ?? 0,
-              mercyDayUsed: created.mercyDayUsed ?? false,
-              lastMercyWeek: created.lastMercyWeek ?? null,
-              isComplete: created.isComplete ?? false,
-              isActive: created.isActive ?? true,
+        }
+        if (pendingJourney) {
+          try {
+            const created = await apiCreateJourney({
+              type: pendingJourney.type,
+              recipientName: pendingJourney.recipientName,
+              occasion: pendingJourney.occasion,
+              personalDua: pendingJourney.personalDua,
+              goalType: pendingJourney.goalType,
+              goalValue: pendingJourney.goalValue,
+              readerName: pendingJourney.readerName,
+              startDate: pendingJourney.startDate,
+              targetDate: pendingJourney.targetDate,
             });
-            setHydrated(true);
-            return;
+            localStorage.removeItem("niyyah_pending_journey");
+            if (created) {
+              setJourney({
+                ...pendingJourney,
+                id: created.id ?? pendingJourney.id,
+                completedDays:
+                  created.completedDays ?? pendingJourney.completedDays ?? [],
+                currentStreak: created.currentStreak ?? 0,
+                longestStreak: created.longestStreak ?? 0,
+                mercyDayUsed: created.mercyDayUsed ?? false,
+                lastMercyWeek: created.lastMercyWeek ?? null,
+                isComplete: created.isComplete ?? false,
+                isActive: created.isActive ?? true,
+              });
+              setHydrated(true);
+              return;
+            }
+          } catch (err) {
+            // If it fails, keep the pending journey for next page load
+            console.error("Failed to save pending journey:", err);
           }
-        } catch (err) {
-          // If it fails, keep the pending journey for next page load
-          console.error("Failed to save pending journey:", err);
         }
       }
 
@@ -286,10 +248,10 @@ export default function NiyyahHomeSection({
     }
   }
 
-  function handleSelectType(journey: Journey) {
-    // The journey object is already created by the modal in JourneyTypeSelector
-    // Now we just need to save it to the database
-    handleSeal(journey);
+  function handleSelectType(j: Journey) {
+    // The journey object is already created by the modal in JourneyTypeSelector.
+    // Save it to the database via handleSeal.
+    handleSeal(j);
   }
 
   async function handleSeal(j: Journey) {
@@ -301,40 +263,24 @@ export default function NiyyahHomeSection({
       return;
     }
 
-    // Check if this journey was already created (to prevent duplicates after sign-in)
-    // This can happen if the user was redirected to sign-in and the useEffect already created it
+    // Prevent duplicate creation when user lands here right after sign-in.
     if (journey && journey.id) {
-      console.log('[NiyyahHomeSection] Journey already exists in state, skipping duplicate creation');
       return;
     }
 
-    // Also check if a journey exists in the database
     try {
       const existingJourney = await fetchJourney();
       if (existingJourney) {
-        console.log('[NiyyahHomeSection] Journey already exists in database, using existing journey');
         setJourney(existingJourney);
         return;
       }
     } catch (error) {
-      console.error('[NiyyahHomeSection] Error checking for existing journey:', error);
+      console.error("[NiyyahHomeSection] Error checking for existing journey:", error);
       // Continue with creation if check fails
     }
 
     // Create journey in database
     try {
-      console.log('[NiyyahHomeSection] Creating journey:', JSON.stringify({
-        type: j.type,
-        recipientName: j.recipientName,
-        occasion: j.occasion,
-        personalDua: j.personalDua,
-        goalType: j.goalType,
-        goalValue: j.goalValue,
-        readerName: j.readerName,
-        startDate: j.startDate,
-        targetDate: j.targetDate,
-      }));
-      
       const created = await apiCreateJourney({
         type: j.type,
         recipientName: j.recipientName,
@@ -346,8 +292,6 @@ export default function NiyyahHomeSection({
         startDate: j.startDate,
         targetDate: j.targetDate,
       });
-
-      console.log('[NiyyahHomeSection] Journey created:', created);
 
       if (created) {
         // The API returns the raw DB row without completedDays — normalize it.
@@ -373,12 +317,11 @@ export default function NiyyahHomeSection({
         };
         setJourney(normalized);
       } else {
-        console.error('[NiyyahHomeSection] apiCreateJourney returned null');
-        alert('Failed to create journey. Please try again.');
+        console.error("[NiyyahHomeSection] apiCreateJourney returned null");
+        // The toast UI handles user-facing notification; no `alert()` here.
       }
     } catch (error) {
-      console.error('[NiyyahHomeSection] Failed to create niyyah journey:', error);
-      alert('Failed to create journey: ' + (error instanceof Error ? error.message : String(error)));
+      console.error("[NiyyahHomeSection] Failed to create niyyah journey:", error);
     }
   }
 

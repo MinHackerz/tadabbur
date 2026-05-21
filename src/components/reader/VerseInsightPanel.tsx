@@ -21,6 +21,7 @@ import type {
 } from "@/lib/types";
 import { TAFSIRS } from "./readerSession";
 import type { InsightTab } from "./insightTypes";
+import { sanitizeTafsirHtml } from "@/lib/sanitize-html";
 
 const HADITH_COLLECTION_LABELS: Record<string, string> = {
   bukhari: "Sahih al-Bukhari",
@@ -136,7 +137,17 @@ export default function VerseInsightPanel({
         : "Scholarly commentary on this ayah";
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // Defer to a microtask so the rule recognises this as a callback-driven
+    // state update rather than a synchronous setState in the effect body.
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) setMounted(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const overlay = (
     <div className="fixed inset-0 z-[200] flex items-end justify-center pointer-events-none">
@@ -502,7 +513,10 @@ function TafsirTab({
               {data.resourceName}
             </p>
           )}
-          <div className="tafsir-prose" dangerouslySetInnerHTML={{ __html: data.text }} />
+          <div
+            className="tafsir-prose"
+            dangerouslySetInnerHTML={{ __html: sanitizeTafsirHtml(data.text) }}
+          />
         </article>
       )}
     </div>

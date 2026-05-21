@@ -1,65 +1,103 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getUserFromSession } from "@/lib/auth-helpers";
+import {
+  asTrimmedString,
+  asBoundedInt,
+  asIsoDate,
+  parseVerseKeyStrict,
+  MAX_VERSES_PER_DAY,
+} from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
+
+const MAX_PAGES_PER_DAY = 1_000;
+const MAX_MINUTES_PER_DAY = 24 * 60;
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getUserFromSession(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = (await req.json()) as {
-      date: string;
-      surahId: number;
-      versesRead: number;
-      minutesRead: number;
-      pagesRead: number;
-      firstVerseKey?: string | null;
-      lastVerseKey?: string | null;
-    };
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
-    const { date, surahId, versesRead, minutesRead, pagesRead, firstVerseKey, lastVerseKey } = body;
+    const date = asIsoDate(body.date);
+    const surahId = asBoundedInt(body.surahId, 1, 114);
+    const versesRead = asBoundedInt(body.versesRead, 0, MAX_VERSES_PER_DAY);
+    const minutesRead = asBoundedInt(body.minutesRead, 0, MAX_MINUTES_PER_DAY) ?? 0;
+    const pagesRead = asBoundedInt(body.pagesRead, 0, MAX_PAGES_PER_DAY) ?? 0;
 
-    if (!date || !surahId || versesRead == null) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!date || surahId === null || versesRead === null) {
+      return NextResponse.json(
+        { error: "Missing or invalid required fields" },
+        { status: 400 },
+      );
     }
 
-    const dateObj = new Date(date);
+    const firstVerseKey =
+      body.firstVerseKey == null
+        ? null
+        : parseVerseKeyStrict(body.firstVerseKey)?.verseKey ?? null;
+    const lastVerseKey =
+      body.lastVerseKey == null
+        ? null
+        : parseVerseKeyStrict(body.lastVerseKey)?.verseKey ?? null;
 
-    const existing = await prisma.readingSession.findFirst({
-      where: { userId: user.sub, date: dateObj, surahId },
+    // Atomic upsert with the new unique (userId, date, surahId). The previous
+    // `findFirst → update` was a TOCTOU race that lost updates from
+    // concurrent visibility/verse-completion handlers. We read the existing
+    // row first only to compute monotonic-max aggregates; the actual write
+    // is the upsert.
+    const existing = await prisma.readingSession.findUnique({
+      where: {
+        userId_date_surahId: {
+          userId: user.sub,
+          date,
+          surahId,
+        },
+      },
+      select: {
+        versesRead: true,
+        minutesRead: true,
+        pagesRead: true,
+        firstVerseKey: true,
+        lastVerseKey: true,
+      },
     });
 
-    if (existing) {
-      await prisma.readingSession.update({
-        where: { id: existing.id },
-        data: {
+    const merged = existing
+      ? {
           versesRead: Math.max(existing.versesRead, versesRead),
           minutesRead: existing.minutesRead + minutesRead,
           pagesRead: Math.max(existing.pagesRead, pagesRead),
-          lastVerseKey: lastVerseKey ?? existing.lastVerseKey,
           firstVerseKey: existing.firstVerseKey ?? firstVerseKey,
-        },
-      });
-    } else {
-      await prisma.readingSession.create({
-        data: {
+          lastVerseKey: lastVerseKey ?? existing.lastVerseKey,
+        }
+      : { versesRead, minutesRead, pagesRead, firstVerseKey, lastVerseKey };
+
+    await prisma.readingSession.upsert({
+      where: {
+        userId_date_surahId: {
           userId: user.sub,
-          date: dateObj,
+          date,
           surahId,
-          versesRead,
-          minutesRead,
-          pagesRead,
-          firstVerseKey: firstVerseKey ?? null,
-          lastVerseKey: lastVerseKey ?? null,
         },
-      });
-    }
+      },
+      create: {
+        userId: user.sub,
+        date,
+        surahId,
+        ...merged,
+      },
+      update: merged,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    if (process.env.NODE_ENV === "development") console.error(err);
-    return NextResponse.json({ error: "Failed to save reading session" }, { status: 500 });
+    console.error("[/api/reading/track POST]", err);
+    return NextResponse.json(
+      { error: "Failed to save reading session" },
+      { status: 500 },
+    );
   }
 }

@@ -69,32 +69,45 @@ export async function resolveLocationFromIp(ip: string | null): Promise<GeoIpRes
   }
 
   try {
+    // ip-api.com offers a free HTTPS endpoint via `pro.ip-api.com` and a
+    // free TLS-enabled mirror at `ipwho.is`. We prefer the latter because it
+    // doesn't require a key and supports HTTPS for the free tier. Cleartext
+    // HTTP to ip-api.com leaked the user's IP and was MITM-able to override
+    // the prayer-time location.
     const response = await fetch(
-      `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,lat,lon,city,timezone`,
+      `https://ipwho.is/${encodeURIComponent(ip)}?fields=success,latitude,longitude,city,timezone`,
       { cache: "no-store" },
     );
 
     if (!response.ok) return null;
 
     const json = (await response.json()) as {
-      status?: string;
-      lat?: number;
-      lon?: number;
+      success?: boolean;
+      latitude?: number;
+      longitude?: number;
       city?: string;
-      timezone?: string;
+      timezone?: { id?: string } | string;
     };
 
-    if (json.status !== "success" || json.lat == null || json.lon == null) {
+    if (
+      json.success !== true ||
+      typeof json.latitude !== "number" ||
+      typeof json.longitude !== "number"
+    ) {
       return null;
     }
 
+    const tzRaw =
+      typeof json.timezone === "string"
+        ? json.timezone
+        : json.timezone?.id ?? "";
+    const tz = tzRaw.replace(/_/g, " ");
     const city = json.city?.trim();
-    const tz = json.timezone?.replace(/_/g, " ");
     const cityLabel = city && tz ? `${city} · ${tz}` : city ?? tz ?? null;
 
     return {
-      lat: String(json.lat),
-      lng: String(json.lon),
+      lat: String(json.latitude),
+      lng: String(json.longitude),
       cityLabel,
     };
   } catch {

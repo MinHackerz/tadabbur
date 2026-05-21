@@ -1,6 +1,7 @@
 "use client";
 
-import { progressPct, totalVersesRead, type Journey } from "@/lib/niyyah";
+import { useEffect, useState } from "react";
+import { progressPct, type Journey } from "@/lib/niyyah";
 import { Lantern } from "./icons";
 import { GoldCorners, OrnamentDivider } from "./Ornament";
 
@@ -8,10 +9,60 @@ interface Props {
   journey: Journey;
 }
 
+interface TodayStats {
+  versesRead: number;
+  minutesRead: number;
+  pagesRead: number;
+}
+
 export default function ProgressVessel({ journey }: Props) {
   const pct = progressPct(journey);
-  const verses = totalVersesRead(journey);
   const remaining = Math.max(0, journey.goalValue - journey.completedDays.length);
+  
+  // Get real-time stats from today's reading
+  const [todayStats, setTodayStats] = useState<TodayStats>({ versesRead: 0, minutesRead: 0, pagesRead: 0 });
+  const [totalVerses, setTotalVerses] = useState(0);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        // Get today's reading stats
+        const todayRes = await fetch('/api/reading/today');
+        if (todayRes.ok) {
+          const data = await todayRes.json();
+          setTodayStats({
+            versesRead: data.versesRead || 0,
+            minutesRead: data.minutesRead || 0,
+            pagesRead: data.pagesRead || 0,
+          });
+        }
+
+        // Calculate total verses from journey days + today's verses
+        const journeyVerses = journey.completedDays.reduce((sum, d) => sum + d.versesRead, 0);
+        const todayVerses = todayStats.versesRead;
+        
+        // Check if today is already in completedDays
+        const today = new Date().toISOString().slice(0, 10);
+        const todayAlreadyCounted = journey.completedDays.some(d => d.date.startsWith(today));
+        
+        setTotalVerses(journeyVerses + (todayAlreadyCounted ? 0 : todayVerses));
+      } catch (error) {
+        console.error('Failed to load reading stats:', error);
+      }
+    }
+
+    loadStats();
+    
+    // Refresh stats when user returns to page
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadStats();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [journey, todayStats.versesRead]);
 
   return (
     <article className="relative grid grid-cols-[minmax(7rem,9.5rem)_1fr] gap-6 items-center p-6 sm:p-7 rounded-3xl border border-ny-gold/30 bg-ny-cream parchment-bg overflow-hidden shadow-[0_18px_40px_rgba(28,58,47,0.10)]">
@@ -37,7 +88,7 @@ export default function ProgressVessel({ journey }: Props) {
             label="Days completed"
             value={`${journey.completedDays.length} / ${journey.goalValue}`}
           />
-          <Stat label="Verses read" value={verses.toLocaleString()} />
+          <Stat label="Verses read" value={totalVerses.toLocaleString()} />
           <Stat label="Days remaining" value={remaining.toString()} />
           <Stat
             label="Streak"

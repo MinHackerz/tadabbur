@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { sanitizeTafsirHtml } from "@/lib/sanitize-html";
 
 interface TafsirResource {
   id: number;
@@ -32,96 +33,113 @@ export default function Day6Tafsir({ verseKey }: Props) {
   const [loadingContent, setLoadingContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch available tafsirs on mount
+  // Fetch available tafsirs on mount. Inlining the fetch (state updates only
+  // inside .then callbacks) satisfies react-hooks/set-state-in-effect.
   useEffect(() => {
-    fetchAvailableTafsirs();
-  }, []);
-
-  // Fetch tafsir content when selection changes
-  useEffect(() => {
-    if (selectedTafsirId && verseKey) {
-      fetchTafsirContent();
-    }
-  }, [selectedTafsirId, verseKey]);
-
-  // Ensure Ibn Kathir (169) is selected by default if available in English
-  useEffect(() => {
-    if (availableTafsirs.length > 0 && selectedLanguage === "english") {
-      const ibnKathir = availableTafsirs.find(t => t.id === 169);
-      if (ibnKathir && selectedTafsirId !== 169) {
-        setSelectedTafsirId(169);
-      }
-    }
-  }, [availableTafsirs, selectedLanguage]);
-
-  async function fetchAvailableTafsirs() {
-    try {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
       setLoading(true);
       setError(null);
-      const response = await fetch("https://api.quran.com/api/v4/resources/tafsirs");
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.tafsirs) {
-        setAvailableTafsirs(data.tafsirs);
-        
-        // Extract unique languages
-        const languages = Array.from(new Set(data.tafsirs.map((t: TafsirResource) => t.language_name)));
-        setAvailableLanguages(languages as string[]);
-        
-        // Set default language to English if available
-        if (languages.includes("english")) {
-          setSelectedLanguage("english");
-        } else if (languages.length > 0) {
-          setSelectedLanguage((languages[0] as string).toLowerCase());
-        }
-      }
-    } catch (err) {
-      console.error("[Day6Tafsir] Error fetching tafsirs:", err);
-      setError(err instanceof Error ? err.message : "Failed to load tafsirs");
-    } finally {
-      setLoading(false);
-    }
-  }
+    });
 
-  async function fetchTafsirContent() {
-    try {
+    fetch("https://api.quran.com/api/v4/resources/tafsirs")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data.tafsirs) {
+          setAvailableTafsirs(data.tafsirs);
+
+          const languages = Array.from(
+            new Set(
+              (data.tafsirs as TafsirResource[]).map((t) => t.language_name),
+            ),
+          ) as string[];
+          setAvailableLanguages(languages);
+
+          if (languages.includes("english")) {
+            setSelectedLanguage("english");
+            // If Ibn Kathir is available, prefer it; otherwise leave the
+            // current selection in place so a later language switch works.
+            const hasIbnKathir = (data.tafsirs as TafsirResource[]).some(
+              (t) => t.id === 169 && t.language_name === "english",
+            );
+            if (hasIbnKathir) {
+              setSelectedTafsirId(169);
+            }
+          } else if (languages.length > 0) {
+            setSelectedLanguage(languages[0].toLowerCase());
+          }
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[Day6Tafsir] Error fetching tafsirs:", err);
+        setError(err instanceof Error ? err.message : "Failed to load tafsirs");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch tafsir content whenever the (selectedTafsirId, verseKey) pair changes.
+  useEffect(() => {
+    if (!selectedTafsirId || !verseKey) return;
+
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
       setLoadingContent(true);
       setError(null);
-      const response = await fetch(
-        `https://api.quran.com/api/v4/tafsirs/${selectedTafsirId}/by_ayah/${verseKey}`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.tafsir && data.tafsir.text) {
-        setTafsirContent({
-          id: data.tafsir.resource_id,
-          text: data.tafsir.text,
-          resource_name: data.tafsir.resource_name,
-          resource_id: data.tafsir.resource_id,
-          language_name: data.tafsir.translated_name?.language_name || "Unknown",
-        });
-      } else {
+    });
+
+    fetch(`https://api.quran.com/api/v4/tafsirs/${selectedTafsirId}/by_ayah/${verseKey}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data.tafsir && data.tafsir.text) {
+          setTafsirContent({
+            id: data.tafsir.resource_id,
+            text: data.tafsir.text,
+            resource_name: data.tafsir.resource_name,
+            resource_id: data.tafsir.resource_id,
+            language_name: data.tafsir.translated_name?.language_name || "Unknown",
+          });
+        } else {
+          setTafsirContent(null);
+          setError("No tafsir available for this verse");
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[Day6Tafsir] Error fetching tafsir:", err);
+        setError(err instanceof Error ? err.message : "Failed to load tafsir content");
         setTafsirContent(null);
-        setError("No tafsir available for this verse");
-      }
-    } catch (err) {
-      console.error("[Day6Tafsir] Error fetching tafsir:", err);
-      setError(err instanceof Error ? err.message : "Failed to load tafsir content");
-      setTafsirContent(null);
-    } finally {
-      setLoadingContent(false);
-    }
-  }
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingContent(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTafsirId, verseKey]);
 
   // Filter tafsirs by selected language
   const filteredTafsirs = availableTafsirs.filter(
@@ -221,7 +239,7 @@ export default function Day6Tafsir({ verseKey }: Props) {
           <div className="prose prose-sm max-w-none">
             <div 
               className="text-[14px] text-ink leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: tafsirContent.text }}
+              dangerouslySetInnerHTML={{ __html: sanitizeTafsirHtml(tafsirContent.text) }}
             />
           </div>
         </div>

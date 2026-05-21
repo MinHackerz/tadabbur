@@ -31,33 +31,41 @@ export default function Day2Translation({ verseKey, onReflectionSave, existingRe
   const [saved, setSaved] = useState(false);
   const [selectedTranslations, setSelectedTranslations] = useState<number[]>([]);
 
+  // Inline fetch in the effect (state updates only inside .then callbacks).
   useEffect(() => {
-    fetchTranslations();
-  }, [verseKey]);
-
-  async function fetchTranslations() {
-    try {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
       setLoading(true);
       setError(null);
+    });
 
-      // Fetch translations for this specific verse from our API
-      const res = await fetch(`/api/tadabbur/translations?verseKey=${verseKey}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch translations");
-      }
-      const data = await res.json();
-      
-      if (data.translations && data.translations.length > 0) {
-        setTranslations(data.translations);
-      } else {
-        setError("No translations available for this verse.");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load translations");
-    } finally {
-      setLoading(false);
-    }
-  }
+    fetch(`/api/tadabbur/translations?verseKey=${verseKey}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch translations");
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data.translations && data.translations.length > 0) {
+          setTranslations(data.translations);
+        } else {
+          setError("No translations available for this verse.");
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load translations");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [verseKey]);
 
   const handleToggleTranslation = (id: number) => {
     setSelectedTranslations(prev =>

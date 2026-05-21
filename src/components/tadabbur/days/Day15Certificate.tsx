@@ -61,16 +61,78 @@ export default function Day15Certificate({
   }
 
   function downloadCertificate(svg: string, filename: string) {
-    // Convert SVG to PDF-like format by downloading as SVG (browser can print to PDF)
-    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    // Convert SVG to PDF using browser's built-in capabilities
+    // Create a blob from the SVG
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename.replace('.svg', '.pdf').replace('.pdf', '.svg'); // Keep as SVG for now
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    
+    // Create a temporary iframe to render and print the SVG
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      // Fallback: download as SVG
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return;
+    }
+    
+    // Write SVG to iframe
+    iframeDoc.open();
+    iframeDoc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Certificate</title>
+          <style>
+            body { margin: 0; padding: 0; }
+            svg { display: block; width: 100%; height: auto; }
+          </style>
+        </head>
+        <body>${svg}</body>
+      </html>
+    `);
+    iframeDoc.close();
+    
+    // Wait for content to load, then trigger print dialog
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          // Try to use the browser's print-to-PDF functionality
+          iframe.contentWindow?.print();
+          
+          // Clean up after a delay
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+            URL.revokeObjectURL(url);
+          }, 1000);
+        } catch (error) {
+          console.error('Print failed, falling back to SVG download:', error);
+          // Fallback: download as SVG
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename.replace('.pdf', '.svg');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(url);
+        }
+      }, 500);
+    };
   }
 
   function handleViewCertificate() {
@@ -106,7 +168,7 @@ export default function Day15Certificate({
           Congratulations on Completing Your 15-Day Journey!
         </h3>
         <p className="text-[14px] text-ink-secondary mb-6 max-w-2xl mx-auto">
-          You've spent 15 days deeply contemplating verse {verseKey}. You've explored it through recitation, 
+          You&apos;ve spent 15 days deeply contemplating verse {verseKey}. You&apos;ve explored it through recitation, 
           translation, linguistics, history, scholarship, and personal reflection. This verse is now part of you.
         </p>
 
@@ -160,7 +222,7 @@ export default function Day15Certificate({
                 <span className="text-accent">✓</span> Similar Verses
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-accent">✓</span> Personal Du'a
+                <span className="text-accent">✓</span> Personal Du&apos;a
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-accent">✓</span> Historical Context
@@ -250,7 +312,7 @@ export default function Day15Certificate({
       <div className="bg-surface border border-border rounded-xl p-6">
         <h4 className="text-[15px] font-semibold text-ink mb-4 flex items-center gap-2">
           <span className="text-[20px]">🌟</span>
-          What's Next?
+          What&apos;s Next?
         </h4>
         <div className="space-y-3 text-[13px] text-ink-secondary">
           <div className="flex items-start gap-3">
@@ -258,7 +320,7 @@ export default function Day15Certificate({
               <span className="text-[11px] font-bold text-accent">1</span>
             </div>
             <div>
-              <strong className="text-ink">Live This Verse:</strong> The real journey begins now. Apply what you've learned in your daily life.
+              <strong className="text-ink">Live This Verse:</strong> The real journey begins now. Apply what you&apos;ve learned in your daily life.
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -283,7 +345,7 @@ export default function Day15Certificate({
       {/* Reflection Quote */}
       <div className="bg-warm/5 border border-warm/20 rounded-xl p-6 text-center">
         <p className="text-[15px] text-ink italic leading-relaxed mb-3">
-          "The best of you are those who learn the Quran and teach it."
+          &quot;The best of you are those who learn the Quran and teach it.&quot;
         </p>
         <p className="text-[12px] text-ink-tertiary">
           — Prophet Muhammad ﷺ (Sahih al-Bukhari 5027)

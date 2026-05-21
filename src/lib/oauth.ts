@@ -64,11 +64,14 @@ export const buildLogoutUrl = ({
     url.searchParams.set("id_token_hint", idToken);
   }
 
-  if (idToken && postLogoutRedirectUri) {
+  // Always include `post_logout_redirect_uri` and `state` when we have them,
+  // even if `id_token_hint` is missing. The IdP will land the user back on
+  // our app rather than stranding them on the QF logout success page.
+  if (postLogoutRedirectUri) {
     url.searchParams.set("post_logout_redirect_uri", postLogoutRedirectUri);
   }
 
-  if (idToken && postLogoutRedirectUri && state) {
+  if (postLogoutRedirectUri && state) {
     url.searchParams.set("state", state);
   }
 

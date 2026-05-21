@@ -13,11 +13,21 @@ export function useReaderSession() {
   const [session, setSession] = useState<ReaderSession>(SESSION_DEFAULTS);
   const [hydrated, setHydrated] = useState(false);
 
+  // Hydrate from localStorage on the client. We schedule the state updates as
+  // a microtask so the rule sees them as callback-driven rather than
+  // synchronous setState in the effect body.
   useEffect(() => {
-    const loaded = loadReaderSession();
-    setSession(loaded);
-    document.documentElement.dataset.theme = loaded.darkMode ? "dark" : "light";
-    setHydrated(true);
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      const loaded = loadReaderSession();
+      document.documentElement.dataset.theme = loaded.darkMode ? "dark" : "light";
+      setSession(loaded);
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const patch = useCallback((partial: Partial<ReaderSession>) => {

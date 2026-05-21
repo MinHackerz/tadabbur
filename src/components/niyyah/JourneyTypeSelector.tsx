@@ -352,7 +352,6 @@ export default function JourneyTypeSelector({ onSelect }: Props) {
         initialType={selectedType}
         onClose={() => setShowSetupModal(false)}
         onSeal={(journey) => {
-          console.log('[JourneyTypeSelector] onSeal called with journey:', journey);
           setShowSetupModal(false);
           // Pass the full journey object to the parent
           onSelect(journey);

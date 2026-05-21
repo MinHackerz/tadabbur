@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma as _prisma } from "@/db";
 import { parseVerseKey, requireUser, toBookmarkItem } from "@/lib/local-store";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const prisma = _prisma as any;
 
 export const dynamic = "force-dynamic";

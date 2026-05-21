@@ -26,11 +26,11 @@ export default function Day10Dua({ verseKey, verseText, verseTranslation, onConf
     <div className="space-y-6">
       <div className="bg-accent-subtle border border-accent/20 rounded-xl p-6">
         <h3 className="text-[15px] font-semibold text-ink mb-2">
-          Read This Verse as Du'a in Prayer
+          Read This Verse as Du&apos;a in Prayer
         </h3>
         <p className="text-[13px] text-ink-secondary">
-          Today's practice is to recite this verse as a personal supplication during your prayer. 
-          Read it in sujood (prostration), after tashahhud, or in any voluntary prayer as your du'a to Allah.
+          Today&apos;s practice is to recite this verse as a personal supplication during your prayer. 
+          Read it in sujood (prostration), after tashahhud, or in any voluntary prayer as your du&apos;a to Allah.
         </p>
       </div>
 
@@ -57,11 +57,11 @@ export default function Day10Dua({ verseKey, verseText, verseTranslation, onConf
           </li>
           <li className="flex gap-3">
             <span className="shrink-0 w-6 h-6 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[11px] font-bold">2</span>
-            <span>Pray at least 2 rak'ahs (or add to your regular prayers)</span>
+            <span>Pray at least 2 rak&apos;ahs (or add to your regular prayers)</span>
           </li>
           <li className="flex gap-3">
             <span className="shrink-0 w-6 h-6 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[11px] font-bold">3</span>
-            <span>In sujood or after tashahhud, recite this verse as your du'a</span>
+            <span>In sujood or after tashahhud, recite this verse as your du&apos;a</span>
           </li>
           <li className="flex gap-3">
             <span className="shrink-0 w-6 h-6 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[11px] font-bold">4</span>
@@ -79,16 +79,16 @@ export default function Day10Dua({ verseKey, verseText, verseTranslation, onConf
           <div className="text-center">
             <div className="text-[32px] mb-3">🤲</div>
             <h4 className="text-[15px] font-semibold text-ink mb-2">
-              Have you read this verse as du'a in your prayer?
+              Have you read this verse as du&apos;a in your prayer?
             </h4>
             <p className="text-[13px] text-ink-secondary mb-4">
-              Mark complete once you've recited this verse as a supplication during your prayer.
+              Mark complete once you&apos;ve recited this verse as a supplication during your prayer.
             </p>
             <button
               onClick={handleConfirm}
               className="bg-accent hover:bg-accent-hover text-white px-6 py-3 rounded-lg text-[14px] font-medium transition-colors"
             >
-              Yes, I've completed this practice
+              Yes, I&apos;ve completed this practice
             </button>
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function Day10Dua({ verseKey, verseText, verseTranslation, onConf
                 Alhamdulillah! Practice Completed
               </h4>
               <p className="text-[13px] text-ink-secondary leading-relaxed">
-                May Allah accept your du'a and grant you what is best.
+                May Allah accept your du&apos;a and grant you what is best.
               </p>
             </div>
           </div>
@@ -139,9 +139,9 @@ export default function Day10Dua({ verseKey, verseText, verseTranslation, onConf
         <div className="flex items-start gap-3">
           <div className="text-[18px]">💡</div>
           <div className="text-[12px] text-ink-secondary leading-relaxed">
-            <strong className="text-ink">Spiritual Insight:</strong> The Quran itself is du'a. 
-            When you recite Allah's words back to Him in prayer, you're using the most beautiful 
-            and powerful supplications. The Prophet ﷺ often used Quranic verses in his du'as.
+            <strong className="text-ink">Spiritual Insight:</strong> The Quran itself is du&apos;a. 
+            When you recite Allah&apos;s words back to Him in prayer, you&apos;re using the most beautiful 
+            and powerful supplications. The Prophet ﷺ often used Quranic verses in his du&apos;as.
           </div>
         </div>
       </div>

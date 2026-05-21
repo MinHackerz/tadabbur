@@ -4,6 +4,7 @@ import { getSurah } from "@/lib/niyyah";
 import { calculateStreak, getStreakMessage, type ReadingDay } from "@/lib/streak";
 import { ArrowRight } from "./icons";
 import { GoldCorners } from "./Ornament";
+import StreakRequirementBadge from "@/components/StreakRequirementBadge";
 import type { TodayReadingStats } from "@/app/api/reading/today/route";
 
 const fetchJson = async <T,>(url: string): Promise<T> => {
@@ -143,6 +144,20 @@ export default function RhythmStrip({
                 </dd>
               </div>
             </dl>
+            
+            {/* Streak requirement badge - compact version */}
+            {(todayStats.versesRead > 0 || todayStats.minutesRead > 0) && (
+              <div className="mt-2">
+                <StreakRequirementBadge
+                  versesRead={todayStats.versesRead}
+                  minutesRead={todayStats.minutesRead}
+                  minVerses={3}
+                  minMinutes={5}
+                  compact={true}
+                />
+              </div>
+            )}
+            
             <p className="text-[11px] text-ny-sage italic m-0 mt-1.5">
               {streakMessage}
             </p>

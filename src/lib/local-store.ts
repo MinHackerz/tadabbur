@@ -5,7 +5,7 @@ import { getUserFromSession, type User } from "@/lib/auth-helpers";
 import { prisma as _prisma } from "@/db";
 import type { BookmarkItem, CollectionItem, NoteItem } from "@/lib/types";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const prisma = _prisma as any;
 
 /**

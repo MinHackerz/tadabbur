@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { DAILY_ANGLES } from "@/lib/tadabbur-data";
 
 interface Props {
@@ -13,6 +15,16 @@ interface Props {
 export default function ConstellationProgress({ completedDays, currentDay, onDayClick, lastCompletedAt, timerEnabled = true }: Props) {
   const totalDays = 15;
   const stars = Array.from({ length: totalDays }, (_, i) => i + 1);
+
+  // Lazy state initialiser runs once. The react-hooks/purity rule allows
+  // Math.random() inside useState initialisers but not in render or useMemo.
+  const [starfield] = useState(() =>
+    Array.from({ length: 30 }, () => ({
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      opacity: Math.random() * 0.5 + 0.3,
+    })),
+  );
 
   // Check if a day is locked (24-hour timer)
   function isDayLocked(day: number): boolean {
@@ -34,14 +46,14 @@ export default function ConstellationProgress({ completedDays, currentDay, onDay
     <div className="bg-gradient-to-b from-[#0A1628] to-[#1C3A2F] dark:from-[#050a0f] dark:to-[#0d1a15] rounded-2xl p-8 relative overflow-hidden border border-border/50">
       {/* Starfield background */}
       <div className="absolute inset-0 opacity-20">
-        {Array.from({ length: 30 }).map((_, i) => (
+        {starfield.map((s, i) => (
           <div
             key={i}
             className="absolute w-1 h-1 bg-white rounded-full"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              opacity: Math.random() * 0.5 + 0.3,
+              left: s.left,
+              top: s.top,
+              opacity: s.opacity,
             }}
           />
         ))}

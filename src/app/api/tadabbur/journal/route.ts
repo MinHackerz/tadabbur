@@ -1,17 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getUserFromSession } from "@/lib/auth-helpers";
+import {
+  asTrimmedString,
+  asOptionalTrimmedString,
+  asBoundedInt,
+  MAX_SHORT_STRING,
+  MAX_LONG_STRING,
+} from "@/lib/validation";
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getUserFromSession(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json();
-    const { progressId, day, content, isPublic, region } = body;
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
-    if (!progressId || !day || !content) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const progressId = asTrimmedString(body.progressId, MAX_SHORT_STRING);
+    const day = asBoundedInt(body.day, 1, 60);
+    const content = asTrimmedString(body.content, MAX_LONG_STRING);
+    const region = asOptionalTrimmedString(body.region, MAX_SHORT_STRING);
+    const isPublic = body.isPublic === true;
+
+    if (!progressId || day === null || !content) {
+      return NextResponse.json(
+        { error: "Missing or invalid required fields" },
+        { status: 400 },
+      );
     }
 
     // Verify ownership
@@ -35,13 +50,13 @@ export async function POST(req: NextRequest) {
         progressId,
         day,
         content,
-        isPublic: isPublic ?? false,
-        region: region ?? null,
+        isPublic,
+        region,
       },
       update: {
         content,
-        isPublic: isPublic ?? false,
-        region: region ?? null,
+        isPublic,
+        region,
       },
     });
 
@@ -55,7 +70,10 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const circleId = searchParams.get("circleId");
+    const circleId = asTrimmedString(
+      searchParams.get("circleId"),
+      MAX_SHORT_STRING,
+    );
 
     if (!circleId) {
       return NextResponse.json({ error: "Circle ID is required" }, { status: 400 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { getUserFromSession } from "@/lib/auth-helpers";
+import { getUserFromSession, getUserDisplayName } from "@/lib/auth-helpers";
 import { generateCertificateSVG, generateCertificateFilename } from "@/lib/certificate-generator";
 
 export async function POST(req: NextRequest) {
@@ -12,7 +12,9 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = user.sub;
-    const userName = (user.name as string) || (user.email as string) || "Learner";
+    
+    // Get user display name from database
+    const userName = await getUserDisplayName(userId);
 
     const body = await req.json();
     const { progressId, circleId, verseKey } = body;
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
       // Generate fresh SVG for download
       const verificationUrl = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/tadabbur/certificate/verify/${existing.id}`;
       
-      const svg = generateCertificateSVG({
+      const svg = await generateCertificateSVG({
         userName,
         verseKey: existing.verseKey,
         verseText: progress.circle.verseKey, // This should be the actual verse text
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
         message: "Certificate already exists",
         certificate: existing,
         svg,
-        filename: generateCertificateFilename(existing.verseKey, existing.completedAt),
+        filename: generateCertificateFilename(existing.verseKey, existing.completedAt, 'pdf'),
       });
     }
 
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Generate SVG
-    const svg = generateCertificateSVG({
+    const svg = await generateCertificateSVG({
       userName,
       verseKey: certificate.verseKey,
       verseText: progress.circle.verseKey,
@@ -124,12 +126,11 @@ export async function POST(req: NextRequest) {
       message: "Certificate generated successfully",
       certificate: { ...certificate, shareableUrl: fullVerificationUrl },
       svg,
-      filename: generateCertificateFilename(certificate.verseKey, certificate.completedAt),
+      filename: generateCertificateFilename(certificate.verseKey, certificate.completedAt, 'pdf'),
     });
   } catch (error) {
     console.error("[/api/tadabbur/certificate POST]", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: "Failed to generate certificate", detail: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate certificate" }, { status: 500 });
   }
 }
 
@@ -159,8 +160,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ certificates });
   } catch (error) {
     console.error("[/api/tadabbur/certificate GET]", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: "Failed to fetch certificates", detail: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch certificates" }, { status: 500 });
   }
 }
 

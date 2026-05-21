@@ -17,21 +17,32 @@ export default function CommunityCircle({ circleId }: Props) {
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Inline the fetch in the effect (with a cancellation flag) so state
+  // updates only happen via .then callbacks — react-hooks/set-state-in-effect
+  // flags synchronous setState in the effect body, but allows it inside
+  // callbacks of microtasks/promises.
   useEffect(() => {
-    loadReflections();
-  }, [circleId]);
+    let cancelled = false;
 
-  async function loadReflections() {
-    try {
-      const res = await fetch(`/api/tadabbur/journal?circleId=${circleId}`);
-      const data = await res.json();
-      setReflections(data.reflections || []);
-    } catch (error) {
-      console.error("Failed to load reflections:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+    fetch(`/api/tadabbur/journal?circleId=${circleId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setReflections(data.reflections || []);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Failed to load reflections:", error);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [circleId]);
 
   if (loading) {
     return (
@@ -60,7 +71,7 @@ export default function CommunityCircle({ circleId }: Props) {
         {reflections.slice(0, 5).map((reflection, i) => (
           <div key={i} className="border-l-2 border-warm pl-4 py-2">
             <p className="text-[14px] text-ink mb-2 font-niyyah-display italic">
-              "{reflection.content}"
+              &quot;{reflection.content}&quot;
             </p>
             <div className="text-[12px] text-ink-tertiary">
               {reflection.region && `${reflection.region} · `}Day {reflection.day}

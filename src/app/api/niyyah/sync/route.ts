@@ -8,6 +8,9 @@ const toIso = (d: Date) => d.toISOString().slice(0, 10);
  * Auto-sync niyyah journey progress based on actual reading sessions.
  * This endpoint checks if today's reading portion has been completed
  * and automatically marks the day in the journey.
+ * 
+ * Separate from regular goals - Niyyah has its own streak logic.
+ * Niyyah streak requirements: Complete the day's portion (no minimum verse count)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -83,14 +86,13 @@ export async function POST(req: NextRequest) {
     const startKey = firstCompletion.verseKey;
     const endKey = lastCompletion.verseKey;
 
-    // Calculate expected verses for today's portion
-    // For now, we'll use a simple heuristic: if user read at least 10 verses, consider it a valid day
-    const MIN_VERSES_FOR_DAY = 10;
-    
-    if (totalVersesRead < MIN_VERSES_FOR_DAY) {
+    // For Niyyah journey, we don't enforce a minimum verse count
+    // The user decides when they've completed their portion for the day
+    // However, we still want at least 1 verse to count as activity
+    if (totalVersesRead < 1) {
       return NextResponse.json({ 
         synced: false, 
-        message: `Need at least ${MIN_VERSES_FOR_DAY} verses (read ${totalVersesRead})` 
+        message: "No verses completed today" 
       });
     }
 
@@ -112,7 +114,7 @@ export async function POST(req: NextRequest) {
     const totalDays = journey.days.length + 1;
     const isComplete = totalDays >= journey.goalValue;
 
-    // Calculate streak
+    // Calculate Niyyah streak (consecutive days with completed portions)
     const allDays = [...journey.days, newDay].sort((a, b) => a.date.getTime() - b.date.getTime());
     let currentStreak = 1;
     let longestStreak = journey.longestStreak;
@@ -156,7 +158,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[/api/niyyah/sync POST]", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: "Failed to sync journey", detail: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to sync journey" }, { status: 500 });
   }
 }

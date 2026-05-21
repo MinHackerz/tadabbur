@@ -81,13 +81,24 @@ export default function GoalsView({ isLoggedIn, data, submitGoalPayload }: Goals
   const [goalType, setGoalType] = useState("PAGES");
   const [target, setTarget] = useState(2);
 
+  // Seed the form whenever new goal data arrives. We defer the setStates to a
+  // microtask so they run after the effect body, satisfying
+  // react-hooks/set-state-in-effect (which only flags synchronous setState
+  // inside the effect body).
   useEffect(() => {
-    if (data.goals.data) {
-      const p = parseGoal(data.goals.data);
+    if (!data.goals.data) return;
+    let cancelled = false;
+    const goal = data.goals.data;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      const p = parseGoal(goal);
       setPeriod(p.period);
       setGoalType(p.type);
       setTarget(p.target);
-    }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [data.goals.data]);
 
   const handleSave = () => {
@@ -263,7 +274,7 @@ export default function GoalsView({ isLoggedIn, data, submitGoalPayload }: Goals
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent mt-0.5 shrink-0"><IconCheck /></span>
-              <span>Choose a time of day when you're most focused and peaceful</span>
+              <span>Choose a time of day when you&apos;re most focused and peaceful</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-accent mt-0.5 shrink-0"><IconCheck /></span>

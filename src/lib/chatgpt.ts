@@ -11,7 +11,6 @@ if (process.env.OPENAI_API_KEY) {
 interface TadabburContentResult {
   content: string;
   sources?: string;
-  tavilyResults?: TavilySearchResult[];
 }
 
 interface TavilySearchResult {
@@ -22,13 +21,42 @@ interface TavilySearchResult {
 }
 
 /**
- * Search Tavily for authentic Islamic sources
+ * Authoritative Islamic sources, prioritised. Tavily restricts results
+ * to this allow-list so the AI can ground its prose in well-reviewed
+ * scholarship instead of generic web pages.
+ */
+const AUTHENTIC_DOMAINS = [
+  // Core Quran resources
+  "quran.com",
+  "tafsir.app",
+  "altafsir.com",
+  "sunnah.com",
+  // Reviewed scholarship
+  "yaqeeninstitute.org",
+  "seekersguidance.org",
+  "bayyinahinstitute.com",
+  // Q&A and fiqh
+  "islamqa.info",
+  "islamweb.net",
+  "dar-alifta.org",
+  // Academic / encyclopedic
+  "islamicstudies.info",
+  "oxfordislamicstudies.com",
+  // Established institutions
+  "alimaanmagazine.com",
+  "sunnipath.com",
+  "almadinainstitute.org",
+];
+
+/**
+ * Search Tavily for authentic Islamic sources.
+ * Results are used by GPT to ground the response in vetted material.
  */
 async function searchTavily(query: string): Promise<TavilySearchResult[]> {
   const apiKey = process.env.TAVILY_API_KEY;
-  
+
   if (!apiKey || apiKey === "tvly-YOUR_TAVILY_KEY_HERE") {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log("[Tavily] API key not configured, skipping search");
     }
     return [];
@@ -37,23 +65,13 @@ async function searchTavily(query: string): Promise<TavilySearchResult[]> {
   try {
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: apiKey,
-        query: query,
+        query,
         search_depth: "advanced",
-        include_domains: [
-          "quran.com",
-          "islamqa.info",
-          "seekersguidance.org",
-          "yaqeeninstitute.org",
-          "islamweb.net",
-          "sunnah.com",
-          "islamicstudies.info"
-        ],
-        max_results: 5,
+        include_domains: AUTHENTIC_DOMAINS,
+        max_results: 6,
       }),
     });
 
@@ -63,30 +81,80 @@ async function searchTavily(query: string): Promise<TavilySearchResult[]> {
     }
 
     const data = await response.json();
-    
-    return (data.results || []).map((result: any) => ({
-      title: result.title,
-      url: result.url,
-      content: result.content,
-      score: result.score,
+    const raw: TavilySearchResult[] = (data.results || []).map((r: any) => ({
+      title: r.title,
+      url: r.url,
+      content: r.content,
+      score: r.score ?? 0,
     }));
+
+    // Deduplicate by domain — keep the highest-scoring result per host so
+    // the citation list never has 3 links pointing to the same site.
+    const byDomain = new Map<string, TavilySearchResult>();
+    for (const r of raw) {
+      try {
+        const host = new URL(r.url).hostname.replace(/^www\./, "");
+        const existing = byDomain.get(host);
+        if (!existing || r.score > existing.score) byDomain.set(host, r);
+      } catch {
+        /* skip malformed URLs */
+      }
+    }
+
+    return Array.from(byDomain.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4);
   } catch (error) {
     console.error("[Tavily] Search error:", error);
     return [];
   }
 }
 
-interface TadabburContentResult {
-  content: string;
-  sources?: string;
-  tavilyResults?: TavilySearchResult[];
+/**
+ * Strip markdown emphasis that GPT sometimes emits despite system rules.
+ * We keep `## Headings` and `- bullets`, drop `**bold**` and `*italic*`.
+ */
+function sanitiseProse(text: string): string {
+  return (
+    text
+      // **bold** → bold (no asterisks)
+      .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+      // __bold__ → bold
+      .replace(/__([^_\n]+)__/g, "$1")
+      // single *italic* → italic (avoid removing list markers at line start)
+      .replace(/(^|[^*\n])\*([^*\n]+)\*(?!\*)/g, "$1$2")
+      // _italic_ → italic
+      .replace(/(^|[^_\n])_([^_\n]+)_(?!_)/g, "$1$2")
+      // Trim trailing spaces on each line
+      .replace(/[ \t]+$/gm, "")
+      .trim()
+  );
 }
 
-interface TavilySearchResult {
-  title: string;
-  url: string;
-  content: string;
-  score: number;
+/**
+ * Build a clean, numbered citations block from Tavily results.
+ * Format: `1. Source name — Title (host)` so the UI can render minimal,
+ * academic-style references without dumping full URLs in body copy.
+ */
+function buildSourcesBlock(results: TavilySearchResult[]): string {
+  if (!results.length) return "";
+  return results
+    .map((r, i) => {
+      let host = "";
+      try {
+        host = new URL(r.url).hostname.replace(/^www\./, "");
+      } catch {
+        host = "source";
+      }
+      const title = (r.title || host).trim().replace(/\s+/g, " ");
+      return `${i + 1}. ${title} | ${host} | ${r.url}`;
+    })
+    .join("\n");
+}
+
+interface PromptSpec {
+  prompt: string;
+  tavilyQuery: string;
 }
 
 export async function generateTadabburContent(
@@ -96,340 +164,225 @@ export async function generateTadabburContent(
   angleType: string
 ): Promise<TadabburContentResult> {
   if (!openai) {
-    throw new Error("OpenAI API key is not configured. Please set OPENAI_API_KEY in your environment variables.");
+    throw new Error(
+      "OpenAI API key is not configured. Please set OPENAI_API_KEY in your environment variables."
+    );
   }
 
-  // Enhanced prompts with better instructions
-  const prompts: Record<string, { prompt: string; tavilyQuery: string }> = {
+  // ── Prompts ────────────────────────────────────────────────────────────
+  // All section headers use `## Title` (Markdown H2). NO `**bold**` or
+  // `*italic*` anywhere. The rendering layer parses `## ` lines as headings.
+  const prompts: Record<string, PromptSpec> = {
     revelation: {
-      prompt: `Provide a detailed explanation of the Asbab al-Nuzul (circumstances of revelation) for Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}").
+      prompt: `Write a focused explanation of Asbab al-Nuzul (circumstances of revelation) for Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}".
 
-Structure your response as follows:
+Use these exact section headings, each on its own line, prefixed with "## ":
 
-**Historical Context:**
-- When and where was this verse revealed (Makkan or Madinan period)?
-- What was the broader situation of the Muslim community at that time?
+## Historical Context
+When and where the verse was revealed (Makkan or Madinan period), and the broader situation of the early Muslim community at the time.
 
-**Specific Incident:**
-- What specific event, question, or situation prompted this revelation?
-- Who were the key people involved?
-- What was the immediate problem or need being addressed?
+## The Specific Incident
+The event, question, or situation that prompted this revelation. Name the people involved and the immediate problem being addressed.
 
-**Divine Response:**
-- How did this verse address the situation?
-- What guidance or ruling did it provide?
-- What was the immediate impact on the companions?
+## The Divine Response
+How the verse answered the situation, the guidance or ruling it provided, and the immediate effect on the Companions.
 
-**Scholarly Sources:**
-- Reference classical tafsir works (Ibn Kathir, Al-Tabari, Al-Qurtubi, Ibn Abbas)
-- Cite relevant hadith collections if applicable
-- Note any scholarly consensus or differences
+## Scholarly Foundation
+Reference classical works (Ibn Kathir, Al-Tabari, Al-Qurtubi, narrations from Ibn Abbas) and any relevant hadith. Note scholarly consensus or differences clearly.
 
-Keep it authentic, well-sourced, and accessible (400-500 words).`,
-      tavilyQuery: `Asbab al-Nuzul circumstances of revelation Quran ${verseKey} ${verseTranslation.slice(0, 50)}`
+Length: 400–500 words. Authentic, well-sourced, accessible.`,
+      tavilyQuery: `Asbab al-Nuzul circumstances of revelation Quran ${verseKey} ${verseTranslation.slice(0, 50)}`,
     },
 
     sahabi: {
-      prompt: `Tell an authentic, well-documented story of a Companion (Sahabi) of Prophet Muhammad ﷺ who was directly connected to Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}").
+      prompt: `Tell an authentic, well-documented story of a Companion (Sahabi) of Prophet Muhammad ﷺ connected to Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}".
 
-Structure your response:
+Use these exact headings, each on its own line, prefixed with "## ":
 
-**The Companion:**
-- Full name and brief background
-- Their relationship to the Prophet ﷺ
-- Their known qualities and contributions
+## The Companion
+Full name, brief background, relationship to the Prophet ﷺ, and known qualities.
 
-**The Story:**
-- The specific incident involving this verse and this companion
-- What they said, did, or experienced
-- How this verse impacted their life or actions
-- The lessons they drew from it
+## The Story
+The specific incident involving this verse and this companion — what they said, did, or experienced, and how the verse impacted their life.
 
-**Historical Authenticity:**
-- Source the story from authentic hadith collections (Bukhari, Muslim, Abu Dawud, etc.)
-- Reference seerah works (Ibn Hisham, Ibn Kathir's Al-Bidayah wan-Nihayah)
-- Note the chain of narration quality if relevant
+## Authenticity
+Source the story from authentic hadith collections (Bukhari, Muslim, Abu Dawud, etc.) or seerah works (Ibn Hisham, Ibn Kathir's Al-Bidayah wan-Nihayah). Note the chain quality if relevant.
 
-**Timeless Lessons:**
-- What can we learn from this companion's example?
-- How does their story illuminate the verse's meaning?
+## Timeless Lessons
+What we can learn from this companion's example and how their story illuminates the verse's meaning today.
 
-Keep it narrative, engaging, and authentic (400-500 words).`,
-      tavilyQuery: `Sahaba companion story Quran ${verseKey} Prophet Muhammad hadith ${verseTranslation.slice(0, 50)}`
+Length: 400–500 words. Narrative, engaging, authentic.`,
+      tavilyQuery: `Sahaba companion story Quran ${verseKey} Prophet Muhammad hadith ${verseTranslation.slice(0, 50)}`,
     },
 
     natural: {
-      prompt: `Explore the natural world and scientific principles that echo the wisdom of Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}").
+      prompt: `Explore the natural world and scientific principles that echo the wisdom of Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}".
 
-Structure your response:
+Use these exact headings, each on its own line, prefixed with "## ":
 
-**Natural Phenomena:**
-- What aspects of creation (Ayat in nature) reflect this verse's message?
-- Specific examples from the natural world (astronomy, biology, physics, etc.)
-- Observable patterns or principles
+## Signs in Creation
+Aspects of the natural world (astronomy, biology, physics, ecology) that reflect the verse's message. Specific, observable examples.
 
-**Scientific Understanding:**
-- Modern scientific knowledge that aligns with the verse's wisdom
-- How contemporary science reveals deeper layers of meaning
-- Avoid overreach - focus on genuine parallels
+## Modern Understanding
+Contemporary scientific knowledge that aligns with the verse's wisdom. Stay accurate and avoid overreach.
 
-**Spiritual Reflection:**
-- How does observing nature deepen our understanding of this verse?
-- The connection between Quranic Ayat (verses) and cosmic Ayat (signs)
-- Practical ways to observe these signs in daily life
+## Reflection
+How observing nature deepens understanding of the verse, and the connection between Quranic ayat and cosmic ayat.
 
-**Balance:**
-- Maintain intellectual honesty
-- Distinguish between clear parallels and speculative connections
-- Focus on wonder and reflection, not forced "scientific miracles"
+## Honest Balance
+Distinguish clear parallels from speculative connections. Focus on wonder and reflection, not forced "scientific miracles".
 
-Keep it accessible, wonder-inspiring, and intellectually honest (400-500 words).`,
-      tavilyQuery: `Quran ${verseKey} nature science creation signs ${verseTranslation.slice(0, 50)}`
+Length: 400–500 words. Wonder-inspiring and intellectually honest.`,
+      tavilyQuery: `Quran ${verseKey} nature science creation signs ${verseTranslation.slice(0, 50)}`,
     },
 
     historical: {
-      prompt: `Describe the vivid historical context of 7th century Arabia when Quran verse ${verseKey} was revealed: "${verseText}" (Translation: "${verseTranslation}").
+      prompt: `Describe the vivid 7th-century Arabian context of Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}".
 
-Structure your response:
+Use these exact headings, each on its own line, prefixed with "## ":
 
-**Time and Place:**
-- Specific period (early Makkan, late Makkan, Madinan - which year?)
-- Location (Makkah, Madinah, or during a journey/battle?)
-- The broader historical moment
+## Time and Place
+Specific period (early Makkan, late Makkan, or Madinan, with year if known), location, and the broader historical moment.
 
-**Social and Political Landscape:**
-- What was happening in Arabian society?
-- The status of Muslims at that time (persecuted minority, growing community, established state?)
-- Key challenges: religious, social, economic, or political
+## Society and Politics
+Arabian social structure, status of the Muslim community, and the religious, social, economic, or political challenges of the moment.
 
-**Immediate Context:**
-- Specific events or circumstances surrounding this revelation
-- The questions or problems the Muslim community faced
-- Interactions with other groups (Quraysh, Jews, Christians, hypocrites, etc.)
+## Immediate Context
+Specific events surrounding this revelation, the questions or problems the community faced, and interactions with other groups (Quraysh, Jews, Christians, hypocrites).
 
-**Impact and Application:**
-- How this verse addressed those specific challenges
-- The immediate effect on the early Muslim community
-- Why this historical context matters for understanding the verse today
+## Impact
+How this verse addressed those challenges, its effect on the early Muslim community, and why this context matters for understanding the verse today.
 
-**Sources:**
-- Reference seerah works (Ibn Hisham, Ibn Ishaq, Al-Tabari's History)
-- Classical tafsir that discusses historical context
-- Authentic hadith collections
+## Sources
+Reference seerah works (Ibn Hisham, Ibn Ishaq, Al-Tabari's History) and classical tafsir.
 
-Keep it vivid, historically accurate, and relevant (400-500 words).`,
-      tavilyQuery: `Quran ${verseKey} 7th century Arabia historical context Makkah Madinah ${verseTranslation.slice(0, 50)}`
+Length: 400–500 words. Vivid, accurate, relevant.`,
+      tavilyQuery: `Quran ${verseKey} 7th century Arabia historical context Makkah Madinah ${verseTranslation.slice(0, 50)}`,
     },
 
     scholar: {
-      prompt: `Provide contemporary Islamic scholarly perspectives on Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}").
+      prompt: `Provide contemporary Islamic scholarly perspectives on Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}".
 
-Structure your response:
+Use these exact headings, each on its own line, prefixed with "## ":
 
-**Modern Context:**
-- What contemporary challenges or questions does this verse address?
-- How is it relevant to Muslims living in the 21st century?
-- Common misconceptions or misapplications
+## Modern Relevance
+Contemporary challenges and questions this verse addresses, and common misconceptions to clear up.
 
-**Scholarly Insights:**
-- Perspectives from 2-3 contemporary scholars (e.g., Yasir Qadhi, Nouman Ali Khan, Omar Suleiman, Hamza Yusuf, Ingrid Mattson, etc.)
-- How they connect classical wisdom with modern realities
-- Fresh insights that bridge tradition and contemporary life
+## Scholarly Insights
+Two or three contemporary scholars (e.g., Yasir Qadhi, Nouman Ali Khan, Omar Suleiman, Hamza Yusuf, Ingrid Mattson). How they connect classical wisdom with modern realities.
 
-**Practical Applications:**
-- Concrete ways to apply this verse today
-- Relevance to modern issues (technology, social justice, family life, work, etc.)
-- Actionable guidance for daily life
+## Practical Applications
+Concrete ways to apply this verse today — technology, social justice, family, work, community.
 
-**Balanced Approach:**
-- Maintain connection to classical scholarship
-- Avoid extremes (neither rigid literalism nor excessive liberalism)
-- Respect diversity of valid scholarly opinions
+## Balanced Approach
+Stay anchored to classical scholarship; avoid extremes; respect valid scholarly diversity.
 
-**Sources:**
-- Reference contemporary books, lectures, or articles
-- Cite specific scholars and their works
-- Link to classical sources they build upon
+## Sources
+Cite specific contemporary works or lectures and the classical references they build upon.
 
-Keep it relevant, practical, and well-sourced (400-500 words).`,
-      tavilyQuery: `contemporary Islamic scholars Quran ${verseKey} modern interpretation ${verseTranslation.slice(0, 50)}`
+Length: 400–500 words. Relevant, practical, well-sourced.`,
+      tavilyQuery: `contemporary Islamic scholars Quran ${verseKey} modern interpretation ${verseTranslation.slice(0, 50)}`,
     },
 
     constellation: {
-      prompt: `Create an integrative summary connecting all the angles explored for Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}").
+      prompt: `Create an integrative summary connecting all 15 angles explored across this Tadabbur Circle for Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}".
 
-The reader has completed a 15-day journey exploring:
-1. Recitation and listening (Day 1)
-2. Multiple translations (Day 2)
-3. Word-by-word analysis (Day 3)
-4. Circumstances of revelation (Day 4)
-5. A Companion's story (Day 5)
-6. Classical tafsir (Day 6)
-7. Personal reflection (Day 7)
-8. Natural world parallels (Day 8)
-9. Similar verses (Day 9)
-10. Reading as dua in prayer (Day 10)
-11. Historical context (Day 11)
-12. Contemporary scholarship (Day 12)
-13. This constellation view (Day 13)
-14. Calligraphic tradition (Day 14)
-15. Scholarly interpretations (Day 15)
+The reader has spent 15 days on: recitation, translations, word-by-word, revelation context, a Companion's story, classical tafsir, personal reflection, natural-world parallels, similar verses, dua in prayer, historical context, contemporary scholarship, this constellation view, calligraphic tradition, and scholarly interpretations.
 
-Structure your response:
+Use these exact headings, each on its own line, prefixed with "## ":
 
-**Overarching Themes:**
-- What 3-5 major themes emerged across all these angles?
-- The "big picture" message of this verse
+## Overarching Themes
+Three to five major themes that emerged across the angles and the verse's "big picture" message.
 
-**Surprising Connections:**
-- Unexpected patterns or insights that emerged
-- How different angles illuminated each other
-- Moments of "aha!" realization
+## Surprising Connections
+Unexpected patterns or moments where one angle illuminated another.
 
-**Holistic Understanding:**
-- How linguistic, historical, spiritual, and practical dimensions fit together
-- The verse's timeless wisdom across contexts
-- Its relevance from 7th century Arabia to today
+## Holistic Understanding
+How linguistic, historical, spiritual, and practical dimensions fit together.
 
-**Integration:**
-- How these 15 angles create a complete picture
-- The value of multi-dimensional Quranic study
-- Moving from information to transformation
+## Integration
+How these angles create a complete picture and the value of multi-dimensional Quranic study.
 
-**Personal Takeaway:**
-- What should the reader carry forward from this journey?
-- How has this verse become a living reality?
+## Personal Takeaway
+What the reader should carry forward — moving from information to transformation.
 
-Keep it integrative, insightful, and inspiring (500-600 words).`,
-      tavilyQuery: `Quran ${verseKey} comprehensive tafsir interpretation themes ${verseTranslation.slice(0, 50)}`
+Length: 500–600 words. Integrative, insightful, inspiring.`,
+      tavilyQuery: `Quran ${verseKey} comprehensive tafsir interpretation themes ${verseTranslation.slice(0, 50)}`,
     },
 
     calligraphy: {
-      prompt: `Explore the Islamic calligraphic tradition and artistic heritage related to Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}").
+      prompt: `Explore the Islamic calligraphic tradition tied to Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}".
 
-Structure your response:
+Use these exact headings, each on its own line, prefixed with "## ":
 
-**Calligraphic Styles:**
-- Major Arabic calligraphy styles: Thuluth, Naskh, Diwani, Kufic, Muhaqqaq, Ruq'ah
-- Which styles are commonly used for Quranic verses?
-- The aesthetic and spiritual qualities of each style
+## Calligraphic Styles
+Major Arabic styles for Quranic verses (Thuluth, Naskh, Diwani, Kufic, Muhaqqaq, Ruq'ah). Aesthetic and spiritual qualities of each.
 
-**Historical Tradition:**
-- The sacred art of Quranic calligraphy in Islamic civilization
-- Famous calligraphers throughout history
-- Manuscripts and masterpieces featuring Quranic verses
+## Historical Tradition
+The sacred art of Quranic calligraphy in Islamic civilization. Famous calligraphers and notable manuscripts.
 
-**Spiritual Significance:**
-- Why Muslims have always beautified the Quran's text
-- The connection between visual beauty and spiritual meaning
-- Calligraphy as a form of worship and meditation
+## Spiritual Significance
+Why Muslims have always beautified the Quran's text — visual beauty as worship and meditation.
 
-**This Verse:**
-- How this specific verse might be rendered in different styles
-- Visual elements that could emphasize its meaning
-- The interplay between form and content
+## This Verse
+How this specific verse might be rendered in different styles and how visual elements emphasise its meaning.
 
-**Contemporary Practice:**
-- Modern calligraphers keeping the tradition alive
-- Digital calligraphy and new media
-- How visual beauty enhances understanding and memorization
+## Contemporary Practice
+Modern calligraphers, digital calligraphy, and how visual beauty enhances understanding and memorisation.
 
-**Reflection:**
-- What does the Islamic emphasis on beautiful Quranic writing teach us?
-- The role of aesthetics in spiritual practice
-
-Keep it artistic, appreciative, and culturally rich (400-500 words).`,
-      tavilyQuery: `Islamic calligraphy Quran ${verseKey} Arabic art manuscript ${verseTranslation.slice(0, 50)}`
+Length: 400–500 words. Artistic, appreciative, culturally rich.`,
+      tavilyQuery: `Islamic calligraphy Quran ${verseKey} Arabic art manuscript ${verseTranslation.slice(0, 50)}`,
     },
 
     practical: {
-      prompt: `Provide practical, actionable guidance on how to apply Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}") in daily life.
+      prompt: `Provide practical, actionable guidance on applying Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}" in daily life.
 
-Structure your response:
+Use these exact headings, each on its own line, prefixed with "## ":
 
-**Core Message:**
-- What is the essential teaching or principle in this verse?
-- The timeless wisdom that applies across all contexts
-- Why this matters for personal and spiritual growth
+## Core Message
+The essential teaching or principle, and why it matters for personal and spiritual growth.
 
-**Daily Life Applications:**
-- **In Personal Character:** How does this verse shape your inner self, habits, and mindset?
-- **In Relationships:** How to apply this in family, friendships, and community interactions
-- **In Work/School:** Practical ways to embody this verse in professional or academic settings
-- **In Worship:** How this verse enriches your prayer, dhikr, and spiritual practices
+## Daily Life Applications
+Personal character, relationships (family, friends, community), work or school, and worship — concrete ways to embody the verse in each.
 
-**Real-World Scenarios:**
-- 3-4 concrete, relatable examples of applying this verse
-- Specific situations where this guidance is needed
-- What it looks like in practice (not just theory)
+## Real-World Scenarios
+Three or four concrete, relatable examples where this guidance is needed in everyday life.
 
-**Mindset Shifts:**
-- What internal changes does this verse call for?
-- Old patterns to release, new perspectives to adopt
-- The spiritual transformation this verse invites
+## Mindset Shifts
+Internal changes the verse calls for — old patterns to release, new perspectives to adopt.
 
-**Small Steps:**
-- Practical action items someone can start today
-- Habits to build or break
-- Daily reminders or practices
+## Small Steps
+Practical action items someone can start today; habits to build or break.
 
-**Challenges and Solutions:**
-- Common obstacles to living this verse
-- How to overcome them with Islamic wisdom
-- Staying consistent and sincere
+## Reflection Questions
+Questions to help the reader internalise the verse and self-examine.
 
-**Reflection Questions:**
-- Questions to help the reader internalize this verse
-- Prompts for self-examination and growth
-
-Keep it practical, relatable, and immediately actionable (500-600 words).`,
-      tavilyQuery: `Quran ${verseKey} practical application daily life Islamic guidance ${verseTranslation.slice(0, 50)}`
+Length: 500–600 words. Practical, relatable, immediately actionable.`,
+      tavilyQuery: `Quran ${verseKey} practical application daily life Islamic guidance ${verseTranslation.slice(0, 50)}`,
     },
 
     madhab: {
-      prompt: `Explain how different Islamic scholarly traditions and schools of thought have interpreted and applied Quran verse ${verseKey}: "${verseText}" (Translation: "${verseTranslation}") in their understanding and practice.
+      prompt: `Explain how different Islamic scholarly traditions interpret and apply Quran ${verseKey}: "${verseText}" — Translation: "${verseTranslation}".
 
-Structure your response:
+Use these exact headings, each on its own line, prefixed with "## ":
 
-**Introduction:**
-- The diversity of Islamic scholarly traditions
-- Different methodological approaches to Quranic interpretation
-- The role of this verse in Islamic understanding
+## Interpretive Traditions
+The diversity of Islamic scholarly approaches and methodological frameworks used to read this verse.
 
-**Interpretive Approaches:**
-- How different scholars and traditions understand this verse
-- Various methodological frameworks used
-- The principles guiding interpretation
+## Areas of Consensus
+Where scholars generally agree — shared principles and conclusions.
 
-**Practical Applications:**
-- How this verse has been applied in different contexts
-- Real-world guidance derived from it
-- Contemporary relevance across different communities
+## Respectful Differences
+Where scholars differ and why. Treat ikhtilaf with dignity; show how diversity enriches the tradition.
 
-**Areas of Consensus:**
-- Where scholars generally agree
-- Shared principles and conclusions
-- Core meanings accepted across traditions
+## Practical Implications
+Real-world issues addressed by this verse and how Muslims can navigate different opinions responsibly.
 
-**Respectful Differences:**
-- Where scholars differ and why
-- The validity of multiple valid interpretations (ikhtilaf)
-- How differences enrich Islamic scholarship
-- The importance of respecting diverse opinions
+## Sources
+Cite classical and contemporary scholarly works, with their evidence.
 
-**Practical Implications:**
-- Real-world issues addressed by this verse
-- How Muslims can navigate different opinions
-- The importance of following qualified scholarship
-- Applying this verse in daily life
-
-**Sources:**
-- Reference classical and contemporary scholarly works
-- Cite specific interpretations and their evidence
-- Note scholarly consensus where it exists
-
-Keep it balanced, educational, and respectful of all valid scholarly traditions (500-600 words).`,
-      tavilyQuery: `Quran ${verseKey} Islamic scholarly interpretation fiqh jurisprudence ${verseTranslation.slice(0, 50)}`
+Length: 500–600 words. Balanced, educational, respectful of valid traditions.`,
+      tavilyQuery: `Quran ${verseKey} Islamic scholarly interpretation fiqh jurisprudence ${verseTranslation.slice(0, 50)}`,
     },
   };
 
@@ -439,60 +392,75 @@ Keep it balanced, educational, and respectful of all valid scholarly traditions 
   }
 
   try {
-    // Search Tavily for authentic sources
+    // Ground the response in vetted Islamic sources.
     const tavilyResults = await searchTavily(promptData.tavilyQuery);
 
-    // Build context from Tavily results
-    let tavilyContext = "";
+    // Build a numbered context block; the model is told to cite as [1], [2], …
+    let groundingContext = "";
     if (tavilyResults.length > 0) {
-      tavilyContext = "\n\n**Additional Context from Authentic Islamic Sources:**\n";
+      groundingContext = "\n\nReference material from authentic Islamic sources (cite inline as [1], [2], … and synthesize, do not list verbatim):\n";
       tavilyResults.forEach((result, index) => {
-        tavilyContext += `\n${index + 1}. ${result.title} (${result.url})\n${result.content.slice(0, 300)}...\n`;
+        let host = "";
+        try {
+          host = new URL(result.url).hostname.replace(/^www\./, "");
+        } catch {
+          host = "";
+        }
+        const snippet = (result.content || "").replace(/\s+/g, " ").slice(0, 480);
+        groundingContext += `\n[${index + 1}] ${result.title} (${host})\n${snippet}\n`;
       });
     }
 
-    // Generate content with ChatGPT
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are a knowledgeable Islamic scholar providing authentic, well-sourced information about the Quran. 
+          content: `You are an Islamic scholar producing professional, well-grounded reflections on the Quran for a thoughtful general audience.
 
-CRITICAL GUIDELINES:
-1. Always cite classical sources (tafsir, hadith collections, seerah works)
-2. Maintain academic rigor while being accessible
-3. When discussing scientific or historical matters, be accurate and avoid overreach
-4. Distinguish between authentic narrations and weak/fabricated ones
-5. Present multiple scholarly opinions when they exist
-6. Be intellectually honest - acknowledge what we know and what we don't
-7. Focus on practical application and spiritual growth
-8. Use the provided web sources to enhance accuracy and provide verifiable references
+OUTPUT FORMAT (strict):
+- Use "## Heading" on its own line for every section heading. Use exactly the headings the user requests.
+- Write in clean, professional prose under each heading. Plain English unless quoting Arabic terms.
+- DO NOT use markdown bold (**text**) or italics (*text* or _text_) anywhere. No asterisks for emphasis.
+- DO NOT prefix lines with extra symbols. Use simple paragraphs.
+- For lists, use "- " bullets only when truly enumerating items.
+- Do not output "Reference Material:" or repeat the grounding snippets verbatim. Synthesize them.
 
-When you reference information from the provided sources, cite them clearly with [Source: Title - URL].
+CITATIONS:
+- When you draw on the provided reference material, cite inline using bracketed numbers like [1] or [2, 3]. Use these numbers only — do not insert URLs or domain names in body text.
+- After your final section, add nothing — the application appends the references list automatically.
 
-At the end of your response, include a "**Sources:**" section listing all references.`,
+CONTENT STANDARDS:
+- Cite classical sources (tafsir, hadith collections, seerah) where appropriate.
+- Distinguish authentic narrations from weak ones.
+- Present multiple scholarly opinions when they exist.
+- Be intellectually honest; acknowledge what is and isn't known.
+- Keep the tone warm, accurate, and accessible.`,
         },
         {
           role: "user",
-          content: promptData.prompt + tavilyContext,
+          content: promptData.prompt + groundingContext,
         },
       ],
-      temperature: 0.7,
-      max_tokens: 1200,
+      temperature: 0.65,
+      max_tokens: 1400,
     });
 
-    const content = response.choices[0].message.content || "";
-    
-    // Extract sources section
-    const sourcesMatch = content.match(/\*\*Sources?:?\*\*\s*([\s\S]+)$/i);
-    const sources = sourcesMatch ? sourcesMatch[1].trim() : undefined;
-    const mainContent = sourcesMatch ? content.replace(/\*\*Sources?:?\*\*\s*[\s\S]+$/i, "").trim() : content;
+    let content = response.choices[0].message.content || "";
+
+    // Drop any model-emitted "## Sources" / "Sources:" tail — we render
+    // the curated, deduplicated source list ourselves from Tavily.
+    content = content
+      .replace(/\n+##\s*Sources?\s*[\s\S]*$/i, "")
+      .replace(/\n+(?:Sources?|References)\s*[:：]?\s*\n[\s\S]*$/i, "")
+      .trim();
+
+    const sanitisedContent = sanitiseProse(content);
+    const sourcesBlock = buildSourcesBlock(tavilyResults);
 
     return {
-      content: mainContent,
-      sources,
-      tavilyResults: tavilyResults.length > 0 ? tavilyResults : undefined,
+      content: sanitisedContent,
+      sources: sourcesBlock || undefined,
     };
   } catch (error) {
     console.error("[ChatGPT] API error:", error);

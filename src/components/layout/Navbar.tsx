@@ -8,10 +8,10 @@ export type ActiveRoute = "home"|"reader"|"search"|"library"|"goals"|"tadabbur"|
 const NAV_BASE: {href:string;key:ActiveRoute;label:string;dynamicReader?:boolean}[] = [
   {href:"/",key:"home",label:"Home"},
   {href:"/read/1",key:"reader",label:"Reader",dynamicReader:true},
+  {href:"/tadabbur",key:"tadabbur",label:"Tadabbur"},
   {href:"/search",key:"search",label:"Search"},
   {href:"/library",key:"library",label:"Library"},
   {href:"/goals",key:"goals",label:"Goals"},
-  {href:"/tadabbur",key:"tadabbur",label:"Tadabbur"},
 ];
 
 const MOBILE_TAB: {href:string;key:ActiveRoute;label:string;icon:React.ReactNode}[] = [

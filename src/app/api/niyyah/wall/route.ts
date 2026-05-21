@@ -31,11 +31,22 @@ export async function GET() {
       };
     });
 
-    const activeJourneys = wallItems.filter((w: typeof wallItems[number]) => !w.isComplete).slice(0, 6);
-    const completedToday = wallItems.filter((w: typeof wallItems[number]) => w.isComplete).slice(0, 2);
-    const displayItems = [...activeJourneys, ...completedToday]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 8);
+    const activeJourneys = wallItems
+      .filter((w: typeof wallItems[number]) => !w.isComplete)
+      .slice(0, 6);
+    const completedToday = wallItems
+      .filter((w: typeof wallItems[number]) => w.isComplete)
+      .slice(0, 2);
+
+    // Fisher–Yates shuffle. The previous `sort(() => Math.random() - 0.5)`
+    // produced a biased distribution where items earlier in the array were
+    // more likely to land near the top of the result.
+    const merged = [...activeJourneys, ...completedToday];
+    for (let i = merged.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [merged[i], merged[j]] = [merged[j], merged[i]];
+    }
+    const displayItems = merged.slice(0, 8);
 
     return NextResponse.json({
       items: displayItems,

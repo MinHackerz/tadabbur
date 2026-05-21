@@ -127,40 +127,33 @@ const createAuthenticatedFetch = (session: StoredSession, config: ReturnType<typ
     });
 
     if (!response.ok) {
-      // Read the response body so callers can surface the upstream validation
-      // message (e.g. a 422 with field-level errors) rather than a generic string.
-      let detail = "";
+      // Read the response body for server-side logs/diagnostics, but do not
+      // include the raw upstream body in `Error.message` — that string ends
+      // up surfaced to the browser via `mutationError` and could leak
+      // upstream stack traces or PII.
+      let logDetail: string | null = null;
       try {
         const ct = response.headers.get("content-type") ?? "";
         if (ct.includes("application/json")) {
-          const body = await response.json() as Record<string, unknown>;
-          // Common shapes: { message }, { error }, { errors: [...] }
-          const msg =
-            body.message ??
-            body.error ??
-            (Array.isArray(body.errors)
-              ? (body.errors as unknown[])
-                  .map((e) =>
-                    typeof e === "string"
-                      ? e
-                      : String((e as Record<string, unknown>).message ?? JSON.stringify(e)),
-                  )
-                  .join("; ")
-              : null);
-          if (msg) {
-            detail = ` — ${String(msg)}`;
-          } else {
-            detail = ` — ${JSON.stringify(body)}`;
-          }
+          const body = (await response.json()) as Record<string, unknown>;
+          logDetail = JSON.stringify(body).slice(0, 1_000);
         } else {
           const text = await response.text();
-          if (text.trim()) detail = ` — ${text.trim().slice(0, 300)}`;
+          if (text.trim()) logDetail = text.trim().slice(0, 1_000);
         }
       } catch {
         // ignore body-read errors; fall through to the generic message
       }
+
+      if (logDetail) {
+        // Server-side breadcrumb only; never goes back to the client.
+        console.error(
+          `[sdk] API request ${response.status} ${response.statusText} for ${url}: ${logDetail}`,
+        );
+      }
+
       const err = new Error(
-        `API request failed: ${response.status} ${response.statusText}${detail}`,
+        `API request failed: ${response.status} ${response.statusText}`,
       ) as Error & { status: number };
       err.status = response.status;
       throw err;
@@ -170,10 +163,16 @@ const createAuthenticatedFetch = (session: StoredSession, config: ReturnType<typ
   };
 };
 
-// App token cache for client_credentials grant (used for content API)
+// App token cache for client_credentials grant (used for content API).
+// Exported so other server routes can reuse the cache instead of re-fetching
+// per request and avoid double-implementations.
 let _appToken: { value: string; expiresAt: number } | null = null;
 
-const getAppToken = async (clientId: string, clientSecret: string, oauth2BaseUrl: string): Promise<string> => {
+export const getAppToken = async (
+  clientId: string,
+  clientSecret: string,
+  oauth2BaseUrl: string,
+): Promise<string> => {
   if (_appToken && _appToken.expiresAt > Date.now() + 30_000) {
     return _appToken.value;
   }
@@ -186,7 +185,7 @@ const getAppToken = async (clientId: string, clientSecret: string, oauth2BaseUrl
     body: "grant_type=client_credentials&scope=content",
   });
   if (!resp.ok) throw new Error(`App token request failed: ${resp.status}`);
-  const j = await resp.json() as { access_token: string; expires_in: number };
+  const j = (await resp.json()) as { access_token: string; expires_in: number };
   _appToken = { value: j.access_token, expiresAt: Date.now() + j.expires_in * 1000 };
   return _appToken.value;
 };

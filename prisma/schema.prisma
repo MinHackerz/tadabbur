@@ -27,6 +27,18 @@ enum GoalType {
 
 // ── Tables ───────────────────────────────────────────────────────────
 
+model User {
+  id        String   @id @db.VarChar(255) // OIDC sub claim
+  email     String?  @db.VarChar(255)
+  name      String?  @db.VarChar(255)
+  firstName String?  @map("first_name") @db.VarChar(255)
+  lastName  String?  @map("last_name") @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
 model UserNotesMeta {
   id              String   @id @db.VarChar(255)
   userId          String   @map("user_id") @db.VarChar(255)
@@ -115,6 +127,10 @@ model ReadingSession {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
+  // Atomic upsert key — prevents lost updates when several
+  // verse-mark-complete requests land at once for the same surah/day.
+  @@unique([userId, date, surahId])
+  @@index([userId, date])
   @@map("reading_sessions")
 }
 
@@ -298,8 +314,31 @@ model Goal {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
+  progress GoalProgress[]
+
   @@index([userId])
   @@map("goals")
+}
+
+model GoalProgress {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  goalId        String   @map("goal_id") @db.Uuid
+  userId        String   @map("user_id") @db.VarChar(255)
+  date          DateTime @db.Date
+  versesRead    Int      @default(0) @map("verses_read")
+  minutesRead   Int      @default(0) @map("minutes_read")
+  pagesRead     Int      @default(0) @map("pages_read")
+  targetMet     Boolean  @default(false) @map("target_met")
+  currentStreak Int      @default(0) @map("current_streak")
+  longestStreak Int      @default(0) @map("longest_streak")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, date])
+  @@index([userId, date])
+  @@map("goal_progress")
 }
 
 // One row per (user, verse, day). Time-spent is wall-clock between when the

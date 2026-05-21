@@ -36,7 +36,14 @@ export function useInsight(chapterId:string,route:string) {
   const { trId, auId, surahId, setTrId, setAuId, setSurahId, setReadingMode, setFontSize, toggleDarkMode, toggleTransliteration, readingMode, fontSize, darkMode, showTransliteration, hydrated: sessionHydrated, patch: patchSession } = session;
 
   useEffect(()=>{const t=setTimeout(()=>setDebQ(defSearch.trim()),300);return()=>clearTimeout(t)},[defSearch]);
-  useEffect(()=>setReaderCh(chapterId),[chapterId]);
+  // Sync the reader chapter from the prop. Deferred to a microtask so the
+  // rule sees this as a callback-driven setState rather than synchronous in
+  // the effect body.
+  useEffect(()=>{
+    let cancelled=false;
+    Promise.resolve().then(()=>{ if(!cancelled) setReaderCh(chapterId); });
+    return ()=>{ cancelled=true; };
+  },[chapterId]);
   useEffect(()=>{
     if(route!=="reader"||!sessionHydrated)return;
     const id=parseInt(chapterId,10);

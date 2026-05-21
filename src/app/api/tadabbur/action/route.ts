@@ -1,17 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getUserFromSession } from "@/lib/auth-helpers";
+import {
+  asTrimmedString,
+  asOptionalTrimmedString,
+  asBoundedInt,
+  MAX_SHORT_STRING,
+  MAX_MEDIUM_STRING,
+} from "@/lib/validation";
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getUserFromSession(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json();
-    const { progressId, day, completed, note } = body;
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
-    if (!progressId || !day) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const progressId = asTrimmedString(body.progressId, MAX_SHORT_STRING);
+    const day = asBoundedInt(body.day, 1, 60);
+    const completed = body.completed === true;
+    const note = asOptionalTrimmedString(body.note, MAX_MEDIUM_STRING);
+
+    if (!progressId || day === null) {
+      return NextResponse.json(
+        { error: "Missing or invalid required fields" },
+        { status: 400 },
+      );
     }
 
     // Verify ownership
@@ -34,12 +48,12 @@ export async function POST(req: NextRequest) {
       create: {
         progressId,
         day,
-        completed: completed ?? false,
-        note: note ?? null,
+        completed,
+        note,
       },
       update: {
-        completed: completed ?? false,
-        note: note ?? null,
+        completed,
+        note,
       },
     });
 

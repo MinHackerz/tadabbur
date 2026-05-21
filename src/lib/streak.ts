@@ -1,6 +1,6 @@
 /**
  * Streak calculation with industry-standard logic:
- * - Minimum threshold: 5 verses OR 5 minutes to count as a valid day
+ * - Minimum threshold: 3 verses OR 5 minutes to count as a valid day
  * - Mercy day: 1 missed day allowed per streak without breaking it
  * - Streak breaks after 2 consecutive missed days
  */
@@ -19,7 +19,7 @@ export interface StreakResult {
 }
 
 // Minimum thresholds to count as a valid reading day
-const MIN_VERSES = 5;
+const MIN_VERSES = 3;
 const MIN_MINUTES = 5;
 
 /**

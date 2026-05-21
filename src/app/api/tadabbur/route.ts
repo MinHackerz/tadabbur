@@ -106,8 +106,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[/api/tadabbur GET]", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: "Failed to fetch tadabbur data", detail: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch tadabbur data" }, { status: 500 });
   }
 }
 

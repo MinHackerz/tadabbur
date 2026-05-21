@@ -31,9 +31,15 @@ export async function GET(
     const payload = await loadReaderData(sessionContext.session, String(chapterId), tr, au);
     return withSessionJson(sessionContext, payload);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    const isNotFound = message.includes("404") || message.toLowerCase().includes("not found");
-    
+    // Use the structured `.status` set by `createAuthenticatedFetch` rather
+    // than string-matching error messages — `message.includes("404")` was
+    // false-matching any 5xx body that happened to contain "404".
+    const status =
+      typeof (error as { status?: unknown }).status === "number"
+        ? (error as { status: number }).status
+        : null;
+    const isNotFound = status === 404;
+
     return withSessionJson(
       sessionContext,
       {

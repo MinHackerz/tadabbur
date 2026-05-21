@@ -33,7 +33,7 @@ export default function VerseVault() {
           </div>
           <div className="text-[12px] text-ink-tertiary mb-2">{verse.reference}</div>
           <div className="text-[13px] text-ink-secondary font-niyyah-display italic">
-            "{verse.personalStatement}"
+            &quot;{verse.personalStatement}&quot;
           </div>
           <div className="mt-4 text-[11px] text-warm">
             Completed {verse.completedMonth}

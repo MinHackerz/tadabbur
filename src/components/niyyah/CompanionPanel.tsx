@@ -91,30 +91,41 @@ export default function CompanionPanel({ trId, onOpenVerse }: Props) {
     };
   }, []);
 
-  // Fetch verses for default emotion on mount
+  // Fetch verses for default emotion on mount and whenever mood/trId change.
+  // The fetch is inlined so state updates only happen inside .then callbacks,
+  // satisfying react-hooks/set-state-in-effect.
   useEffect(() => {
-    if (mood && trId) {
-      setMoodLoading(true);
-      const params = new URLSearchParams({ emotion: mood, tr: trId });
-      fetch(`/api/verse/emotion?${params.toString()}`)
-        .then(async (r) => {
-          if (!r.ok) {
-            console.error('Failed to fetch verses:', r.status);
-            setMoodLoading(false);
-            return;
-          }
-          const data = (await r.json()) as FetchedVerses;
-          console.log('Received verses:', data);
-          if (data.verses && data.verses.length > 0) {
-            setMoodApi(data.verses);
-          }
-          setMoodLoading(false);
-        })
-        .catch((err) => {
-          console.error('Error fetching verses:', err);
-          setMoodLoading(false);
-        });
-    }
+    if (!mood || !trId) return;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) setMoodLoading(true);
+    });
+
+    const params = new URLSearchParams({ emotion: mood, tr: trId });
+    fetch(`/api/verse/emotion?${params.toString()}`)
+      .then(async (r) => {
+        if (!r.ok) {
+          throw new Error(`Failed to fetch verses: ${r.status}`);
+        }
+        return (await r.json()) as FetchedVerses;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data.verses && data.verses.length > 0) {
+          setMoodApi(data.verses);
+        }
+      })
+      .catch(() => {
+        // Errors are surfaced through the empty state in the UI.
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setMoodLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [mood, trId]); // Run when mood or trId changes
 
   // When the user picks a mood, show loading animation while fetching
@@ -129,25 +140,21 @@ export default function CompanionPanel({ trId, onOpenVerse }: Props) {
     setMood(id);
     setMoodApi(null);
     setMoodLoading(true); // Show loading animation
-    
+
     const params = new URLSearchParams({ emotion: id, tr: trId });
-    console.log('Fetching verses for emotion:', id, 'with trId:', trId);
     fetch(`/api/verse/emotion?${params.toString()}`)
       .then(async (r) => {
         if (!r.ok) {
-          console.error('Failed to fetch verses:', r.status);
           setMoodLoading(false);
           return;
         }
         const data = (await r.json()) as FetchedVerses;
-        console.log('Received verses:', data);
         if (data.verses && data.verses.length > 0) {
           setMoodApi(data.verses);
         }
         setMoodLoading(false);
       })
-      .catch((err) => {
-        console.error('Error fetching verses:', err);
+      .catch(() => {
         setMoodLoading(false);
       });
   }

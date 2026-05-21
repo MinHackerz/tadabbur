@@ -1,13 +1,27 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { selectRandomVerse, getCurrentHijriDate } from "@/lib/tadabbur-helpers";
+import { verifyAdminRequest } from "@/lib/admin-auth";
 
 /**
- * Seed endpoint for initial circle creation
- * This is a simplified version that creates one circle
- * For production use, use /api/tadabbur/auto-generate instead
+ * Admin-only: seed a single circle if one doesn't already exist for the
+ * randomly chosen verse this Hijri year. Prefer `/api/tadabbur/auto-generate`
+ * for routine population.
+ *
+ * Now requires `Authorization: Bearer ${ADMIN_SECRET}`.
  */
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const auth = verifyAdminRequest(req);
+  if (auth === "missing_secret") {
+    return NextResponse.json(
+      { error: "Server is missing CRON_SECRET / ADMIN_SECRET configuration." },
+      { status: 503 },
+    );
+  }
+  if (auth !== "ok") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const now = new Date();
     const hijriDate = getCurrentHijriDate();
@@ -22,10 +36,10 @@ export async function POST() {
     });
 
     if (existing) {
-      return NextResponse.json({ 
-        success: true, 
-        circle: existing, 
-        message: "Circle already exists for this verse and year" 
+      return NextResponse.json({
+        success: true,
+        circle: existing,
+        message: "Circle already exists for this verse and year",
       });
     }
 
@@ -45,10 +59,10 @@ export async function POST() {
       },
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      circle, 
-      message: "Created new circle" 
+    return NextResponse.json({
+      success: true,
+      circle,
+      message: "Created new circle",
     });
   } catch (error) {
     console.error("[/api/tadabbur/seed POST]", error);

@@ -104,11 +104,11 @@ export default function NiyyahSetupModal({ open, initialType, onClose, onSeal }:
         readerName,
       };
       const journey = createJourney(input);
-      console.log('[NiyyahSetupModal] handleConfirm called, journey:', journey);
       onSeal(journey);
     } catch (error) {
-      console.error('[NiyyahSetupModal] handleConfirm error:', error);
-      alert('Error creating journey: ' + (error instanceof Error ? error.message : String(error)));
+      // Surfacing the failure via console keeps the modal recoverable; an
+      // `alert()` interrupted users and exposed raw error messages.
+      console.error("[NiyyahSetupModal] handleConfirm error:", error);
     }
   }
 
