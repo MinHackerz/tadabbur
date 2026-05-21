@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { generateTadabburContent, isOpenAIConfigured } from "@/lib/chatgpt";
+import {
+  generateTadabburContent,
+  isOpenAIConfigured,
+  isTadabburAngle,
+} from "@/lib/chatgpt";
 import { getUserFromSession } from "@/lib/auth-helpers";
 import {
   asTrimmedString,
@@ -9,15 +13,6 @@ import {
   MAX_SHORT_STRING,
   MAX_MEDIUM_STRING,
 } from "@/lib/validation";
-
-const ALLOWED_ANGLES = new Set([
-  "linguistic",
-  "thematic",
-  "historical",
-  "spiritual",
-  "practical",
-  "comparative",
-]);
 
 /**
  * AI-backed tadabbur content generation. This calls OpenAI (and optionally
@@ -50,7 +45,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (!ALLOWED_ANGLES.has(angleType)) {
+    if (!isTadabburAngle(angleType)) {
       return NextResponse.json(
         { error: "Unknown angleType." },
         { status: 400 },

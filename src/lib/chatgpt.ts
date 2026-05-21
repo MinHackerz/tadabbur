@@ -157,6 +157,32 @@ interface PromptSpec {
   tavilyQuery: string;
 }
 
+/**
+ * The set of `angleType` values supported by `generateTadabburContent`.
+ * Re-exported so the route handler can validate the query parameter without
+ * hard-coding a list that drifts from the prompts table below.
+ */
+export const SUPPORTED_TADABBUR_ANGLES = [
+  "revelation",
+  "sahabi",
+  "natural",
+  "historical",
+  "scholar",
+  "constellation",
+  "calligraphy",
+  "practical",
+  "madhab",
+] as const;
+
+export type TadabburAngle = (typeof SUPPORTED_TADABBUR_ANGLES)[number];
+
+export function isTadabburAngle(value: unknown): value is TadabburAngle {
+  return (
+    typeof value === "string" &&
+    (SUPPORTED_TADABBUR_ANGLES as readonly string[]).includes(value)
+  );
+}
+
 export async function generateTadabburContent(
   verseKey: string,
   verseText: string,
