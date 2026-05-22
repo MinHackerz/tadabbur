@@ -8,7 +8,6 @@ import {
   parsePositiveInteger,
 } from "@/lib/data";
 import { getAppToken } from "@/lib/sdk";
-import { getUserFromSession } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -118,18 +117,12 @@ function seedFromDayAndEmotion(emotion: string): number {
 }
 
 export async function GET(request: NextRequest) {
-  // Require an authenticated user. This endpoint fans out to the upstream
-  // content API (token-cost) and previously had no auth, making it an easy
-  // abuse vector. Reading verses by emotion is a logged-in feature.
+  // Content endpoint — uses the app token (`client_credentials`) per the
+  // project's auth model. Reading verses by emotion is a public, content-only
+  // path: no user data is read or written, and the upstream Quran CDN search
+  // + content fetches are app-token operations. Anonymous visitors on the
+  // home page need this to power the "How is your heart?" companion panel.
   const sessionContext = await getSession(request);
-  const user = await getUserFromSession(request);
-  if (!user) {
-    return withSessionJson(
-      sessionContext,
-      { error: "Unauthorized", verses: [] },
-      401,
-    );
-  }
 
   const emotion = (request.nextUrl.searchParams.get("emotion") ?? "")
     .trim()
