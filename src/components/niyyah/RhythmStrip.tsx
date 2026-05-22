@@ -44,16 +44,17 @@ export default function RhythmStrip({
   goalPlanSummary,
 }: Props) {
   // Fetch today's real reading stats from the server (only when logged in)
+  // Only show random-source reading here; niyyah has its own dashboard.
   const today = new Date().toISOString().slice(0, 10);
   const { data: todayStats } = useSWR<TodayReadingStats>(
-    isLoggedIn ? `/api/reading/today?date=${today}` : null,
+    isLoggedIn ? `/api/reading/today?date=${today}&source=random` : null,
     fetchJson,
     { revalidateOnFocus: true, refreshInterval: 30_000 },
   );
 
-  // Fetch reading history to compute streak and last position
+  // Fetch reading history to compute streak and last position (random source only)
   const { data: history } = useSWR<ReadingHistoryRow[]>(
-    isLoggedIn ? "/api/reading/history" : null,
+    isLoggedIn ? "/api/reading/history?source=random" : null,
     fetchJson,
     { revalidateOnFocus: true },
   );

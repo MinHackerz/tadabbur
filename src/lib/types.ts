@@ -13,6 +13,7 @@ export interface NoteItem {
   body: string;
   id: string | null;
   ranges: string[];
+  source?: string;
 }
 
 export interface BookmarkItem {
@@ -20,6 +21,7 @@ export interface BookmarkItem {
   readerUrl: string | null;
   type: string;
   verseKey: string;
+  source?: string;
 }
 
 export interface CollectionItem {

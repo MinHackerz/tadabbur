@@ -11,8 +11,16 @@ export async function GET(req: NextRequest) {
   const auth = await requireUser(req);
   if (!auth.user) return auth.response;
 
+  const url = new URL(req.url);
+  const sourceParam = url.searchParams.get("source");
+  const VALID_SOURCES = new Set(["niyyah", "goals", "random"]);
+  const where: Record<string, unknown> = { userId: auth.user.sub };
+  if (sourceParam && VALID_SOURCES.has(sourceParam)) {
+    where.source = sourceParam;
+  }
+
   const rows = await prisma.bookmark.findMany({
-    where: { userId: auth.user.sub },
+    where,
     orderBy: { createdAt: "desc" },
     take: 200,
   });
@@ -29,6 +37,7 @@ export async function POST(req: NextRequest) {
       verseKey?: string;
       chapterNumber?: number | string;
       verseNumber?: number | string;
+      source?: string;
     };
 
     // Accept either { verseKey: "2:255" } or legacy { chapterNumber, verseNumber }.
@@ -45,13 +54,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const VALID_SOURCES = new Set(["niyyah", "goals", "random"]);
+    const source = VALID_SOURCES.has(payload.source ?? "") ? payload.source! : "random";
+
     const row = await prisma.bookmark.upsert({
-      where: { userId_verseKey: { userId: auth.user.sub, verseKey: parsed.verseKey } },
+      where: { userId_verseKey_source: { userId: auth.user.sub, verseKey: parsed.verseKey, source: source as any } },
       create: {
         userId: auth.user.sub,
         verseKey: parsed.verseKey,
         surahId: parsed.surahId,
         verseNumber: parsed.verseNumber,
+        source: source as any,
       },
       update: {},
     });

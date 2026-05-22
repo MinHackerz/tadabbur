@@ -25,8 +25,8 @@ export default function ProgressVessel({ journey }: Props) {
   useEffect(() => {
     async function loadStats() {
       try {
-        // Get today's reading stats
-        const todayRes = await fetch('/api/reading/today');
+        // Get today's reading stats (niyyah source only)
+        const todayRes = await fetch('/api/reading/today?source=niyyah');
         if (todayRes.ok) {
           const data = await todayRes.json();
           setTodayStats({

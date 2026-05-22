@@ -140,14 +140,15 @@ model ReadingSession {
 // are now first-party tables (replacing the inconsistent QF SDK paths).
 
 model Bookmark {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String   @map("user_id") @db.VarChar(255)
-  verseKey    String   @map("verse_key") @db.VarChar(20)
-  surahId     Int      @map("surah_id")
-  verseNumber Int      @map("verse_number")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String        @map("user_id") @db.VarChar(255)
+  verseKey    String        @map("verse_key") @db.VarChar(20)
+  surahId     Int           @map("surah_id")
+  verseNumber Int           @map("verse_number")
+  source      ReadingSource @default(random)
+  createdAt   DateTime      @default(now()) @map("created_at")
 
-  @@unique([userId, verseKey])
+  @@unique([userId, verseKey, source])
   @@index([userId])
   @@map("bookmarks")
 }
@@ -180,12 +181,13 @@ model CollectionItem {
 }
 
 model Note {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String   @map("user_id") @db.VarChar(255)
-  verseKey  String   @map("verse_key") @db.VarChar(20)
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String        @map("user_id") @db.VarChar(255)
+  verseKey  String        @map("verse_key") @db.VarChar(20)
   body      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  source    ReadingSource @default(random)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @default(now()) @updatedAt @map("updated_at")
 
   @@index([userId])
   @@index([userId, verseKey])
@@ -365,7 +367,7 @@ model VerseCompletion {
   completedAt DateTime      @default(now()) @map("completed_at")
   source      ReadingSource @default(random)
 
-  @@unique([userId, verseKey, sessionDate])
+  @@unique([userId, verseKey, sessionDate, source])
   @@index([userId, sessionDate])
   @@map("verse_completions")
 }

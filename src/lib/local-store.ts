@@ -68,6 +68,7 @@ export function buildReaderUrlForVerse(verseKey: string): string {
 interface BookmarkRow {
   id: string;
   verseKey: string;
+  source?: string;
 }
 
 export function toBookmarkItem(row: BookmarkRow): BookmarkItem {
@@ -76,6 +77,7 @@ export function toBookmarkItem(row: BookmarkRow): BookmarkItem {
     readerUrl: buildReaderUrlForVerse(row.verseKey),
     type: "ayah",
     verseKey: row.verseKey,
+    source: row.source ?? "random",
   };
 }
 
@@ -83,6 +85,7 @@ interface NoteRow {
   id: string;
   verseKey: string;
   body: string;
+  source?: string;
 }
 
 export function toNoteItem(row: NoteRow): NoteItem {
@@ -90,6 +93,7 @@ export function toNoteItem(row: NoteRow): NoteItem {
     id: row.id,
     body: row.body,
     ranges: [`${row.verseKey}-${row.verseKey}`],
+    source: row.source ?? "random",
   };
 }
 

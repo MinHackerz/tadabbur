@@ -104,7 +104,7 @@ export function useInsight(chapterId:string,route:string) {
     router.push(buildReaderUrl(next,hash,source));
   },[router,session,patchSession]);
 
-  async function bookmarkVerse(chapter:number,verse:number){
+  async function bookmarkVerse(chapter:number,verse:number,source?:string){
     if(!data?.isLoggedIn){push("Sign in to bookmark verses.",false);return}
     const vk=`${chapter}:${verse}`;
     const tmpId=`t-${tid()}`;
@@ -117,7 +117,7 @@ export function useInsight(chapterId:string,route:string) {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ chapterNumber: chapter, verseNumber: verse }),
+      body: JSON.stringify({ chapterNumber: chapter, verseNumber: verse, source: source || "random" }),
     })
       .then(async (r) => {
         if (!r.ok) {
@@ -203,7 +203,7 @@ export function useInsight(chapterId:string,route:string) {
       });
   }
 
-  async function noteVerse(verseKey:string,body:string){
+  async function noteVerse(verseKey:string,body:string,source?:string){
     if(!data?.isLoggedIn){push("Sign in to save notes.",false);return}
     setNoteVK(verseKey);
     const tmp:NoteItem={body,id:`t-${tid()}`,ranges:[`${verseKey}-${verseKey}`]};
@@ -215,7 +215,7 @@ export function useInsight(chapterId:string,route:string) {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ verseKey, body }),
+      body: JSON.stringify({ verseKey, body, source: source || "random" }),
     })
       .then(async (r) => {
         if (!r.ok) {

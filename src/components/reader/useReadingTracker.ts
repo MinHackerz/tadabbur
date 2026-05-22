@@ -74,7 +74,7 @@ export function useReadingTracker(
     if (!isLoggedIn) return;
     
     const fetchCompleted = () => {
-      fetch("/api/verse-progress", { credentials: "include" })
+      fetch(`/api/verse-progress?source=${source}`, { credentials: "include" })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (!data?.items) return;
@@ -117,7 +117,7 @@ export function useReadingTracker(
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('verse-completed', handleVerseCompleted);
     };
-  }, [chapterId, isLoggedIn]);
+  }, [chapterId, isLoggedIn, source]);
 
   // Pause/resume all active stopwatches on visibility change.
   useEffect(() => {
@@ -263,7 +263,7 @@ export function useReadingTracker(
       setMinutesRead((prev) => Math.max(0, prev - Math.round(elapsed / 60_000)));
       elapsedRef.current.delete(verseKey);
 
-      fetch(`/api/verse-progress?verseKey=${encodeURIComponent(verseKey)}`, {
+      fetch(`/api/verse-progress?verseKey=${encodeURIComponent(verseKey)}&source=${source}`, {
         method: "DELETE",
         credentials: "include",
       }).catch(() => {});

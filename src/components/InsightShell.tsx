@@ -65,8 +65,8 @@ export default function InsightShell({route,chapterId="1"}:{route:string;chapter
           chapters={d.contentPreview.items}
           chaptersError={d.contentPreview.error}
           isLoggedIn={li}
-          bookmarkCount={d.bookmarks.items.length}
-          notesCount={d.notes.items.length}
+          bookmarkCount={d.bookmarks.items.filter((b: { source?: string }) => (b.source ?? "random") === "random").length}
+          notesCount={d.notes.items.filter((n: { source?: string }) => (n.source ?? "random") === "random").length}
           hasGoal={Boolean(d.goals.data)}
           goalLabel={
             d.goals.data
@@ -108,6 +108,7 @@ export default function InsightShell({route,chapterId="1"}:{route:string;chapter
           setReaderCh={h.setReaderCh}
           chapters={d.contentPreview.items}
           bookmarkedKeys={h.bookmarkedKeys}
+          bookmarks={d.bookmarks.items}
           notes={d.notes.items}
           isLoggedIn={li}
           onNavigateSurah={h.navigateSurah}

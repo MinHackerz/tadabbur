@@ -11,8 +11,16 @@ export async function GET(req: NextRequest) {
   const auth = await requireUser(req);
   if (!auth.user) return auth.response;
 
+  const url = new URL(req.url);
+  const sourceParam = url.searchParams.get("source");
+  const VALID_SOURCES = new Set(["niyyah", "goals", "random"]);
+  const where: Record<string, unknown> = { userId: auth.user.sub };
+  if (sourceParam && VALID_SOURCES.has(sourceParam)) {
+    where.source = sourceParam;
+  }
+
   const rows = await prisma.note.findMany({
-    where: { userId: auth.user.sub },
+    where,
     orderBy: { updatedAt: "desc" },
     take: 200,
   });
@@ -28,6 +36,7 @@ export async function POST(req: NextRequest) {
     const payload = (await req.json().catch(() => ({}))) as {
       verseKey?: string;
       body?: string;
+      source?: string;
     };
 
     const body = String(payload.body ?? "").trim();
@@ -46,11 +55,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const VALID_SOURCES = new Set(["niyyah", "goals", "random"]);
+    const source = VALID_SOURCES.has(payload.source ?? "") ? payload.source! : "random";
+
     const row = await prisma.note.create({
       data: {
         userId: auth.user.sub,
         verseKey: parsed.verseKey,
         body,
+        source: source as any,
       },
     });
 

@@ -1,6 +1,7 @@
 "use client";
 import useSWR from "swr";
 import type { AyahTranslationsPayload } from "@/lib/types";
+import { sanitizeTafsirHtml } from "@/lib/sanitize-html";
 import { fetchInsight, translationsInsightUrl } from "./insightApi";
 import { useInView } from "./useInView";
 
@@ -68,9 +69,8 @@ export default function VerseTranslationLine({
         className={`text-ink-secondary leading-[1.85] ${fontClasses.translation} ${
           translationOnly ? "text-[16px] md:text-[17px] text-ink" : ""
         }`}
-      >
-        {text}
-      </p>
+        dangerouslySetInnerHTML={{ __html: sanitizeTafsirHtml(text) }}
+      />
     </div>
   );
 }

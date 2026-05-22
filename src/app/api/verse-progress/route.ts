@@ -32,18 +32,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, message: "Invalid date." }, { status: 400 });
   }
 
+  const sourceParam = url.searchParams.get("source");
+  const VALID_SOURCES = new Set(["niyyah", "goals", "random"]);
+  const whereClause: Record<string, unknown> = { userId: auth.user.sub, sessionDate: date };
+  if (sourceParam && VALID_SOURCES.has(sourceParam)) {
+    whereClause.source = sourceParam;
+  }
+
   const rows = await prisma.verseCompletion.findMany({
-    where: { userId: auth.user.sub, sessionDate: date },
+    where: whereClause,
     orderBy: { completedAt: "asc" },
   });
 
   return NextResponse.json({
     ok: true,
     date: date.toISOString().slice(0, 10),
-    items: rows.map((r: { verseKey: string; timeSpentMs: number; completedAt: Date }) => ({
+    items: rows.map((r: { verseKey: string; timeSpentMs: number; completedAt: Date; source: string }) => ({
       verseKey: r.verseKey,
       timeSpentMs: r.timeSpentMs,
       completedAt: r.completedAt.toISOString(),
+      source: r.source,
     })),
   });
 }
@@ -87,10 +95,11 @@ export async function POST(req: NextRequest) {
 
   const completion = await prisma.verseCompletion.upsert({
     where: {
-      userId_verseKey_sessionDate: {
+      userId_verseKey_sessionDate_source: {
         userId: auth.user.sub,
         verseKey: parsed.verseKey,
         sessionDate,
+        source: source as any,
       },
     },
     create: {
@@ -106,7 +115,6 @@ export async function POST(req: NextRequest) {
     // of recorded time-spent so the total never goes backwards.
     update: {
       timeSpentMs: { set: Math.max(timeSpentMs, 0) },
-      source: source as any,
     },
   });
 
@@ -203,21 +211,27 @@ export async function DELETE(req: NextRequest) {
   }
   const sessionDate = todayDate();
 
-  // Look up the source before deleting so we can recompute the right session
-  const existing = await prisma.verseCompletion.findUnique({
-    where: {
-      userId_verseKey_sessionDate: {
+  // Use source from query param if provided, otherwise look it up
+  const sourceParam = url.searchParams.get("source");
+  const VALID_SOURCES_DEL = new Set(["niyyah", "goals", "random"]);
+  let source: string;
+  if (sourceParam && VALID_SOURCES_DEL.has(sourceParam)) {
+    source = sourceParam;
+  } else {
+    // Look up the source before deleting so we can recompute the right session
+    const existing = await prisma.verseCompletion.findFirst({
+      where: {
         userId: auth.user.sub,
         verseKey: parsed.verseKey,
         sessionDate,
       },
-    },
-    select: { source: true },
-  });
-  const source = existing?.source ?? "random";
+      select: { source: true },
+    });
+    source = existing?.source ?? "random";
+  }
 
   await prisma.verseCompletion.deleteMany({
-    where: { userId: auth.user.sub, verseKey: parsed.verseKey, sessionDate },
+    where: { userId: auth.user.sub, verseKey: parsed.verseKey, sessionDate, source: source as any },
   });
 
   // Recompute the day's session row for the affected surah and source.

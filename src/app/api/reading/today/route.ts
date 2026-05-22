@@ -27,11 +27,18 @@ export async function GET(req: NextRequest) {
       where: { userId: user.sub, date: dateObj },
     });
 
+    // Exclude niyyah-sourced reading from the general "today" stats.
+    // The niyyah dashboard has its own progress display.
+    const sourceFilter = searchParams.get("source");
+    const filtered = sourceFilter
+      ? rows.filter((r: { source: string }) => r.source === sourceFilter)
+      : rows;
+
     const stats: TodayReadingStats = {
-      versesRead: rows.reduce((s, r) => s + r.versesRead, 0),
-      minutesRead: rows.reduce((s, r) => s + r.minutesRead, 0),
-      pagesRead: rows.reduce((s, r) => s + r.pagesRead, 0),
-      surahsRead: rows.length,
+      versesRead: filtered.reduce((s: number, r: { versesRead: number }) => s + r.versesRead, 0),
+      minutesRead: filtered.reduce((s: number, r: { minutesRead: number }) => s + r.minutesRead, 0),
+      pagesRead: filtered.reduce((s: number, r: { pagesRead: number }) => s + r.pagesRead, 0),
+      surahsRead: filtered.length,
       date: dateStr,
     };
 

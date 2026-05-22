@@ -342,7 +342,45 @@ export default function NiyyahHomeSection({
     const p = getTodayPortion(journey);
     // Store timestamp to track when reading started
     sessionStorage.setItem('niyyah_reading_started', Date.now().toString());
-    onOpenReader(p.start.surahId, `verse-${p.start.verseNumber}`, "niyyah");
+
+    // Fetch today's niyyah completions to resume from the last completed verse
+    fetch(`/api/verse-progress?source=niyyah`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.items?.length) {
+          // Find the last completed verse within today's portion range
+          const portionKeys = new Set<string>();
+          for (let s = p.start.surahId; s <= p.end.surahId; s++) {
+            const startV = s === p.start.surahId ? p.start.verseNumber : 1;
+            // Use a generous upper bound; the reader will handle bounds
+            const endV = s === p.end.surahId ? p.end.verseNumber : 999;
+            for (let v = startV; v <= endV; v++) {
+              portionKeys.add(`${s}:${v}`);
+            }
+          }
+
+          // Get the last completed verse that's within today's portion
+          const completedInPortion = (data.items as { verseKey: string }[])
+            .filter((item) => portionKeys.has(item.verseKey));
+
+          if (completedInPortion.length > 0) {
+            const lastKey = completedInPortion[completedInPortion.length - 1].verseKey;
+            const [surahStr, verseStr] = lastKey.split(":");
+            const surahId = Number(surahStr);
+            const verseNumber = Number(verseStr);
+            // Open at the next verse after the last completed one
+            const nextVerse = verseNumber + 1;
+            onOpenReader(surahId, `verse-${nextVerse}`, "niyyah");
+            return;
+          }
+        }
+        // No completions yet — start from the beginning of today's portion
+        onOpenReader(p.start.surahId, `verse-${p.start.verseNumber}`, "niyyah");
+      })
+      .catch(() => {
+        // Fallback: start from the beginning of today's portion
+        onOpenReader(p.start.surahId, `verse-${p.start.verseNumber}`, "niyyah");
+      });
   }
 
   async function handleMarkRead() {

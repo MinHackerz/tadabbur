@@ -11,9 +11,11 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * Always route logout through the IdP's OIDC end-session endpoint, even when
- * we don't have an `id_token_hint` to send. AGENTS.md requires this so a
- * user is fully signed out at the identity provider, not only locally.
+ * Always route logout through the IdP's OIDC end-session endpoint when we
+ * have an `id_token_hint`. Without it, the IdP rejects the request if
+ * `post_logout_redirect_uri` is present. In that case, just destroy the
+ * local session and redirect home — the user is effectively logged out
+ * locally, and the IdP session will expire on its own.
  */
 export async function GET(request: NextRequest) {
   const config = getConfig();
@@ -30,6 +32,13 @@ export async function GET(request: NextRequest) {
   sessionContext.session.oidcLogoutIdTokenHint = null;
   sessionContext.session.authError = null;
   sessionContext.session.flashNotice = null;
+
+  // If we don't have an id_token_hint, the IdP will reject the request when
+  // post_logout_redirect_uri is included. Just destroy the session locally
+  // and redirect home.
+  if (!idToken) {
+    return withDestroyedSessionRedirect(sessionContext, getLogoutRedirectUrl());
+  }
 
   const logoutUrl = buildLogoutUrl({
     idToken,

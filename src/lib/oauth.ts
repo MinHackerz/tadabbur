@@ -64,9 +64,10 @@ export const buildLogoutUrl = ({
     url.searchParams.set("id_token_hint", idToken);
   }
 
-  // Always include `post_logout_redirect_uri` so the IdP redirects back to
-  // our app rather than stranding the user on the QF logout success page.
-  if (postLogoutRedirectUri) {
+  // The OIDC spec (and auth.quran.com) requires `id_token_hint` when
+  // `post_logout_redirect_uri` is present. Only include the redirect when
+  // we actually have the token hint.
+  if (idToken && postLogoutRedirectUri) {
     url.searchParams.set("post_logout_redirect_uri", postLogoutRedirectUri);
   }
 

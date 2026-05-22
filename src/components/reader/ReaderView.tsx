@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { flushSync } from "react-dom";
 import { prefetchHadith, prefetchReflect, prefetchTafsir, prefetchTranslations } from "./insightApi";
-import type { ContentPreviewItem, ReaderPayload } from "@/lib/types";
+import type { BookmarkItem, ContentPreviewItem, ReaderPayload } from "@/lib/types";
 import { btnSecondary, IconArrowRight, input, Label } from "@/components/ui/primitives";
 import ReaderAudioDock, { getPlayableVerses } from "./ReaderAudioDock";
 import ReaderSurahHero from "./ReaderSurahHero";
@@ -32,13 +32,14 @@ interface ReaderViewProps {
   setReaderCh: (v: string) => void;
   chapters: ContentPreviewItem[];
   bookmarkedKeys: Set<string>;
-  notes: Array<{ id: string | null; body: string; ranges: string[] }>;
+  bookmarks: BookmarkItem[];
+  notes: Array<{ id: string | null; body: string; ranges: string[]; source?: string }>;
   isLoggedIn: boolean;
   onNavigateSurah: (id: number, source?: string) => void;
   onJumpSurah: () => void;
-  onBookmarkVerse: (chapter: number, verse: number) => void;
+  onBookmarkVerse: (chapter: number, verse: number, source?: string) => void;
   onUnbookmarkVerse: (verseKey: string) => void;
-  onNoteVerse: (verseKey: string, body: string) => void;
+  onNoteVerse: (verseKey: string, body: string, source?: string) => void;
   onUpdateNote: (noteId: string, body: string) => void;
   onDeleteNote: (noteId: string) => void;
   onCopyVerse: (text: string) => void;
@@ -65,6 +66,7 @@ export default function ReaderView({
   setReaderCh,
   chapters,
   bookmarkedKeys,
+  bookmarks,
   notes,
   isLoggedIn,
   onNavigateSurah,
@@ -129,6 +131,19 @@ export default function ReaderView({
   const readingSource = (searchParams.get("source") as ReadingSource) || "random";
   const tracker = useReadingTracker(cid, isLoggedIn, readingSource);
 
+  // Filter bookmarks and notes by the current reading source
+  const sourceBookmarkedKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const b of bookmarks) {
+      if ((b.source ?? "random") === readingSource) s.add(b.verseKey);
+    }
+    return s;
+  }, [bookmarks, readingSource]);
+
+  const sourceNotes = useMemo(() => {
+    return notes.filter((n) => (n.source ?? "random") === readingSource);
+  }, [notes, readingSource]);
+
   useEffect(() => {
     readerAudio.stop();
     readerAudio.setSurahBarVisible(false);
@@ -177,9 +192,9 @@ export default function ReaderView({
   // The surah hero never minimizes — only the toolbar does.
   const surahHeroCompact = false;
 
-  // Helper to find note for a verse
+  // Helper to find note for a verse (filtered by current reading source)
   const findNoteForVerse = (verseKey: string) => {
-    return notes.find((note) => 
+    return sourceNotes.find((note) => 
       note.ranges.some((range) => {
         const [start, end] = range.split('-');
         return start === verseKey || end === verseKey || range === verseKey;
@@ -189,10 +204,10 @@ export default function ReaderView({
 
   // Helper to toggle bookmark
   const handleToggleBookmark = (verseKey: string, chapter: number, verse: number) => {
-    if (bookmarkedKeys.has(verseKey)) {
+    if (sourceBookmarkedKeys.has(verseKey)) {
       onUnbookmarkVerse(verseKey);
     } else {
-      onBookmarkVerse(chapter, verse);
+      onBookmarkVerse(chapter, verse, readingSource);
     }
   };
 
@@ -352,7 +367,7 @@ export default function ReaderView({
                   readingMode={readingMode}
                   showTransliteration={showTransliteration}
                   fontClasses={fontClasses}
-                  isBookmarked={bookmarkedKeys.has(vk)}
+                  isBookmarked={sourceBookmarkedKeys.has(vk)}
                   hasNote={!!verseNote}
                   isActive={activeVerse === v.verseNumber}
                   isAudioPlaying={
@@ -505,7 +520,7 @@ export default function ReaderView({
                     if (noteModal.existingNote?.id) {
                       onUpdateNote(noteModal.existingNote.id, noteText.trim());
                     } else {
-                      onNoteVerse(noteModal.verseKey, noteText.trim());
+                      onNoteVerse(noteModal.verseKey, noteText.trim(), readingSource);
                     }
                     setNoteModal(null);
                     setNoteText("");

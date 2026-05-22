@@ -9,8 +9,16 @@ export async function GET(req: NextRequest) {
     const user = await getUserFromSession(req);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const { searchParams } = new URL(req.url);
+    const sourceFilter = searchParams.get("source");
+
+    const where: Record<string, unknown> = { userId: user.sub };
+    if (sourceFilter) {
+      where.source = sourceFilter;
+    }
+
     const rows = await prisma.readingSession.findMany({
-      where: { userId: user.sub },
+      where,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 100,
     });
