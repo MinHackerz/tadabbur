@@ -84,11 +84,14 @@ export default function NiyyahHomeSection({
           if (data.synced) didChange = true;
         }
         if (goalSync.status === "fulfilled" && goalSync.value.ok) {
-          // We just consume to release the body; goal data isn't displayed here.
           await goalSync.value.json().catch(() => null);
         }
 
-        if (didChange && journey) {
+        // Always re-fetch journey after sync attempts. The niyyah sync may
+        // have already been performed in-process by verse-progress, so even
+        // when the endpoint reports "already marked" the journey state in the
+        // DB may have changed since we last fetched.
+        if (journey) {
           const updated = await fetchJourney();
           if (updated) setJourney(updated);
         }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma as _prisma } from "@/db";
 import { parseVerseKey, requireUser } from "@/lib/local-store";
 import { syncActiveGoalForUser } from "@/lib/goals-sync";
+import { syncNiyyahJourneyForUser } from "@/lib/niyyah-sync";
 
  
 const prisma = _prisma as any;
@@ -147,13 +148,16 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Sync goals in-process. Previously this self-fetched `/api/goals/sync`
-  // which doubled the request count and added cold-start latency on
-  // serverless. Failures here don't prevent reporting the verse complete.
+  // Sync goals and niyyah journey in-process. Previously this self-fetched
+  // `/api/goals/sync` which doubled the request count and added cold-start
+  // latency on serverless. Failures here don't prevent reporting the verse complete.
   try {
-    await syncActiveGoalForUser(auth.user.sub);
+    await Promise.all([
+      syncActiveGoalForUser(auth.user.sub),
+      syncNiyyahJourneyForUser(auth.user.sub),
+    ]);
   } catch (error) {
-    console.error("[verse-progress] Failed to sync goals:", error);
+    console.error("[verse-progress] Failed to sync goals/niyyah:", error);
   }
 
   return NextResponse.json({

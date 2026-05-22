@@ -19,7 +19,9 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const dateStr = searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
-    const dateObj = new Date(dateStr);
+    // Parse as UTC midnight to match how verse-progress stores dates
+    const parts = dateStr.split("-").map(Number);
+    const dateObj = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
 
     const rows = await prisma.readingSession.findMany({
       where: { userId: user.sub, date: dateObj },

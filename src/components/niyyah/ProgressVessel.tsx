@@ -36,16 +36,6 @@ export default function ProgressVessel({ journey }: Props) {
             pagesRead: data.pagesRead || 0,
           });
         }
-
-        // Calculate total verses from journey days + today's verses
-        const journeyVerses = journey.completedDays.reduce((sum, d) => sum + d.versesRead, 0);
-        const todayVerses = todayStats.versesRead;
-        
-        // Check if today is already in completedDays
-        const today = new Date().toISOString().slice(0, 10);
-        const todayAlreadyCounted = journey.completedDays.some(d => d.date.startsWith(today));
-        
-        setTotalVerses(journeyVerses + (todayAlreadyCounted ? 0 : todayVerses));
       } catch (error) {
         console.error('Failed to load reading stats:', error);
       }
@@ -60,9 +50,26 @@ export default function ProgressVessel({ journey }: Props) {
       }
     };
     
+    // Refresh stats when a verse is completed
+    const handleVerseCompleted = () => {
+      loadStats();
+    };
+    
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [journey, todayStats.versesRead]);
+    window.addEventListener('verse-completed', handleVerseCompleted);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('verse-completed', handleVerseCompleted);
+    };
+  }, [journey.completedDays.length]);
+
+  // Compute total verses: journey days + today's uncounted verses
+  useEffect(() => {
+    const journeyVerses = journey.completedDays.reduce((sum, d) => sum + d.versesRead, 0);
+    const today = new Date().toISOString().slice(0, 10);
+    const todayAlreadyCounted = journey.completedDays.some(d => d.date.startsWith(today));
+    setTotalVerses(journeyVerses + (todayAlreadyCounted ? 0 : todayStats.versesRead));
+  }, [journey.completedDays, todayStats.versesRead]);
 
   return (
     <article className="relative grid grid-cols-[minmax(7rem,9.5rem)_1fr] gap-6 items-center p-6 sm:p-7 rounded-3xl border border-ny-gold/30 bg-ny-cream parchment-bg overflow-hidden shadow-[0_18px_40px_rgba(28,58,47,0.10)]">

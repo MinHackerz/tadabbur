@@ -55,7 +55,7 @@ export default function RhythmStrip({
   const { data: history } = useSWR<ReadingHistoryRow[]>(
     isLoggedIn ? "/api/reading/history" : null,
     fetchJson,
-    { revalidateOnFocus: false },
+    { revalidateOnFocus: true },
   );
 
   // Calculate streak with new logic (minimum thresholds + mercy day)
@@ -71,8 +71,11 @@ export default function RhythmStrip({
   const lastSession = history?.[0] ?? null;
   const lastSurah = lastSession ? getSurah(lastSession.surahId) : null;
   const lastVerse = lastSession?.lastVerseKey?.split(":")[1] ?? null;
-  const readToday = lastSession?.date === today && 
-    (lastSession.versesRead >= 5 || lastSession.minutesRead >= 5);
+  // Use todayStats (which sums ALL surahs for today) for the readToday check,
+  // matching the streak system's thresholds (3 verses OR 5 minutes).
+  const readToday = todayStats
+    ? (todayStats.versesRead >= 3 || todayStats.minutesRead >= 5)
+    : false;
   const streakMessage = getStreakMessage(streakResult, readToday);
 
   return (
