@@ -87,10 +87,10 @@ export function useInsight(chapterId:string,route:string) {
   async function submitPref(){const p=tryJ(prefTxt);if(!p){push("Invalid JSON.",false);return}try{const r=await mutReq("/api/preferences","POST",{payload:p});push(r.message??"Saved.",true);await mutate()}catch(e){push((e as MutR).message??"Failed.",false)}}
   function clearSearch(){setSearchIn("");setDebQ("");sMut({error:null,navigationItems:[],query:"",verseItems:[]},false)}
 
-  const navigateSurah = useCallback((id:number)=>{
+  const navigateSurah = useCallback((id:number,source?:string)=>{
     const next={...session,surahId:id};
     patchSession({surahId:id});
-    router.push(buildReaderUrl(next));
+    router.push(buildReaderUrl(next, undefined, source));
   },[router,session,patchSession]);
 
   function jumpReader(){

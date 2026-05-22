@@ -34,7 +34,7 @@ interface ReaderViewProps {
   bookmarkedKeys: Set<string>;
   notes: Array<{ id: string | null; body: string; ranges: string[] }>;
   isLoggedIn: boolean;
-  onNavigateSurah: (id: number) => void;
+  onNavigateSurah: (id: number, source?: string) => void;
   onJumpSurah: () => void;
   onBookmarkVerse: (chapter: number, verse: number) => void;
   onUnbookmarkVerse: (verseKey: string) => void;
@@ -290,7 +290,7 @@ export default function ReaderView({
                 key={c.id}
                 type="button"
                 onClick={() => {
-                  onNavigateSurah(c.id);
+                  onNavigateSurah(c.id, readingSource);
                   setSurahPickerOpen(false);
                 }}
                 className={`flex flex-col items-start p-2.5 rounded-lg text-left transition-colors ${
@@ -324,7 +324,7 @@ export default function ReaderView({
           <div className="reader-stage">
           <ReaderSurahHero
             chapter={rData.chapter}
-            onNavigateSurah={onNavigateSurah}
+            onNavigateSurah={(id) => onNavigateSurah(id, readingSource)}
             compact={surahHeroCompact}
           />
 
@@ -400,7 +400,7 @@ export default function ReaderView({
               <p className="text-[13px] text-ink-secondary mb-4">Continue your reading journey with the next surah.</p>
               <button
                 type="button"
-                onClick={() => onNavigateSurah(rData.chapter.id + 1)}
+                onClick={() => onNavigateSurah(rData.chapter.id + 1, readingSource)}
                 className={btnSecondary}
               >
                 Next surah <IconArrowRight />
