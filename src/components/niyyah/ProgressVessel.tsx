@@ -17,7 +17,6 @@ interface TodayStats {
 
 export default function ProgressVessel({ journey }: Props) {
   const pct = progressPct(journey);
-  const remaining = Math.max(0, journey.goalValue - journey.completedDays.length);
   
   // Get real-time stats from today's reading
   const [todayStats, setTodayStats] = useState<TodayStats>({ versesRead: 0, minutesRead: 0, pagesRead: 0 });
@@ -96,14 +95,14 @@ export default function ProgressVessel({ journey }: Props) {
             value={`${journey.completedDays.length} / ${journey.goalValue}`}
           />
           <Stat label="Verses read" value={totalVerses.toLocaleString()} />
-          <Stat label="Days remaining" value={remaining.toString()} />
+          <Stat label="Daily target" value={`${journey.dailyTarget || 5} verses`} />
           <Stat
             label="Streak"
             value={journey.currentStreak.toString()}
             sub={
-              !journey.mercyDayUsed
-                ? "✦ mercy day available"
-                : "mercy day used"
+              journey.currentStreak > 0
+                ? "✦ keep it going!"
+                : "complete today's target to start"
             }
           />
         </dl>

@@ -104,8 +104,9 @@ export function clampSurah(n: number) {
   return Math.min(114, Math.max(1, Math.floor(n) || 1));
 }
 
-export function buildReaderUrl(session: ReaderSession, hash?: string) {
-  const q = `?tr=${encodeURIComponent(session.trId)}&au=${encodeURIComponent(session.auId)}`;
+export function buildReaderUrl(session: ReaderSession, hash?: string, source?: string) {
+  let q = `?tr=${encodeURIComponent(session.trId)}&au=${encodeURIComponent(session.auId)}`;
+  if (source) q += `&source=${encodeURIComponent(source)}`;
   const base = `/read/${session.surahId}${q}`;
   return hash ? `${base}${hash.startsWith("#") ? hash : `#${hash}`}` : base;
 }

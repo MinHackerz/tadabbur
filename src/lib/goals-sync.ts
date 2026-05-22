@@ -48,10 +48,10 @@ export async function syncActiveGoalForUser(userId: string): Promise<GoalSyncRes
   );
 
   const todaySessions = await prisma.readingSession.findMany({
-    where: { userId, date: today },
+    where: { userId, date: today, source: "goals" },
   });
   if (todaySessions.length === 0) {
-    return { synced: false, message: "No reading activity today" };
+    return { synced: false, message: "No goals reading activity today" };
   }
 
   const versesRead = todaySessions.reduce(

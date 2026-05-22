@@ -54,6 +54,8 @@ export interface Journey {
   goalType: GoalType;
   /** Number of days the journey spans. For Khatm = 30, for Juz/week = 210. */
   goalValue: number;
+  /** Daily target: how many verses the user wants to read per day. */
+  dailyTarget: number;
   startDate: string;
   targetDate: string;
   completedDays: JourneyDay[];
@@ -82,6 +84,8 @@ export interface NewJourneyInput {
   personalDua: string;
   goalType: GoalType;
   goalValue: number;
+  /** Daily target: how many verses the user wants to read per day. */
+  dailyTarget: number;
   readerName?: string;
 }
 
@@ -566,35 +570,16 @@ function juzForRef(ref: VerseRef): number {
 export function getTodayPortion(j: Journey): TodayPortion {
   const totalDays = Math.max(1, j.goalValue);
   const dayIndex = Math.min(j.completedDays.length, totalDays - 1);
-  
-  let startGlobal: number;
-  let endGlobal: number;
-  
-  // Different logic based on goal type
-  if (j.goalType === "khatm") {
-    // Complete Quran in 30 days - divide all verses evenly
-    const ayahsPerDay = Math.ceil(TOTAL_AYAHS / totalDays);
-    startGlobal = dayIndex * ayahsPerDay + 1;
-    endGlobal = Math.min(TOTAL_AYAHS, startGlobal + ayahsPerDay - 1);
-  } else if (j.goalType === "juz") {
-    // One juz per week (7 days), so ~1/7th of a juz per day
-    // Each juz is ~208 verses (6236/30)
-    const ayahsPerJuz = Math.ceil(TOTAL_AYAHS / 30);
-    const weekIndex = Math.floor(dayIndex / 7);
-    const dayInWeek = dayIndex % 7;
-    const juzStartGlobal = weekIndex * ayahsPerJuz + 1;
-    const ayahsPerDayInJuz = Math.ceil(ayahsPerJuz / 7);
-    startGlobal = juzStartGlobal + (dayInWeek * ayahsPerDayInJuz);
-    endGlobal = Math.min(TOTAL_AYAHS, startGlobal + ayahsPerDayInJuz - 1);
-  } else {
-    // For "days" or "custom" - read a reasonable daily portion
-    // Default to ~2-3 pages per day (about 15-20 minutes)
-    // This is approximately 30-40 verses per day
-    const REASONABLE_DAILY_VERSES = 35;
-    startGlobal = dayIndex * REASONABLE_DAILY_VERSES + 1;
-    endGlobal = Math.min(TOTAL_AYAHS, startGlobal + REASONABLE_DAILY_VERSES - 1);
-  }
-  
+  const dailyTarget = Math.max(1, j.dailyTarget || 5);
+
+  // Sequential reading: each day starts where the previous day left off.
+  // Day 0 starts at verse 1. Day N starts at (N * dailyTarget) + 1.
+  // If the user read more than their target on a previous day, we still
+  // advance by exactly `dailyTarget` per completed day so the schedule
+  // stays predictable and consistent.
+  const startGlobal = Math.min(TOTAL_AYAHS, dayIndex * dailyTarget + 1);
+  const endGlobal = Math.min(TOTAL_AYAHS, startGlobal + dailyTarget - 1);
+
   const start = globalAyahToRef(startGlobal);
   const end = globalAyahToRef(endGlobal);
   const startSurah = getSurah(start.surahId)!;
@@ -624,9 +609,13 @@ export function getTodayPortion(j: Journey): TodayPortion {
 /* ───────── Streak / mercy ────────────────────────────────────────── */
 
 /**
- * Recompute streak from completed days. Each consecutive calendar-day
- * extends the streak; a single skipped day per ISO-week is allowed if the
- * mercy day for that week has not already been used.
+ * Recompute niyyah streak from completed days. The niyyah streak is strict:
+ * each consecutive calendar-day where the daily target was met extends the
+ * streak. A single missed day resets the streak to 0. No mercy days.
+ *
+ * A day "counts" only if the user completed at least their dailyTarget
+ * verses for that day (tracked by the presence of a JourneyDay entry —
+ * the sync logic only creates one when the target is met).
  */
 export function recomputeStreak(j: Journey): {
   currentStreak: number;
@@ -645,31 +634,33 @@ export function recomputeStreak(j: Journey): {
   const dates = [...j.completedDays].map((d) => d.date).sort();
   let current = 1;
   let longest = 1;
-  let mercyDayUsed = false;
-  let lastMercyWeek: string | null = null;
 
   for (let i = 1; i < dates.length; i++) {
     const gap = daysBetween(dates[i - 1], dates[i]);
     if (gap === 1) {
       current++;
-    } else if (gap === 2 && !mercyDayUsed) {
-      // exactly one missed day → mercy day
-      current++;
-      mercyDayUsed = true;
-      lastMercyWeek = weekKey(new Date(dates[i]));
-    } else if (gap > 1) {
+    } else {
+      // Any gap > 1 day breaks the streak (strict, no mercy)
       current = 1;
-      mercyDayUsed = false;
-      lastMercyWeek = null;
     }
     if (current > longest) longest = current;
+  }
+
+  // Check if the streak is still active (last completed day must be today
+  // or yesterday for the streak to be "current")
+  const today = todayKey();
+  const lastDate = dates[dates.length - 1];
+  const gapFromToday = daysBetween(lastDate, today);
+  if (gapFromToday > 1) {
+    // Streak is broken — more than 1 day since last completion
+    current = 0;
   }
 
   return {
     currentStreak: current,
     longestStreak: Math.max(longest, j.longestStreak ?? 0),
-    mercyDayUsed,
-    lastMercyWeek,
+    mercyDayUsed: false,
+    lastMercyWeek: null,
   };
 }
 
@@ -689,6 +680,7 @@ export function resolveGoalValue(goalType: GoalType, requested: number): number 
 export function createJourney(input: NewJourneyInput): Journey {
   const start = todayKey();
   const goalValue = resolveGoalValue(input.goalType, input.goalValue);
+  const dailyTarget = Math.max(1, input.dailyTarget || 5);
   return {
     v: SCHEMA_VERSION,
     id: genId(),
@@ -698,6 +690,7 @@ export function createJourney(input: NewJourneyInput): Journey {
     personalDua: input.personalDua.trim(),
     goalType: input.goalType,
     goalValue,
+    dailyTarget,
     startDate: start,
     targetDate: targetDateFor(start, goalValue),
     completedDays: [],

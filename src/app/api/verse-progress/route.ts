@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
   const payload = (await req.json().catch(() => ({}))) as {
     verseKey?: string;
     timeSpentMs?: number;
+    source?: string;
   };
 
   const parsed = parseVerseKey(payload.verseKey);
@@ -76,6 +77,9 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  const VALID_SOURCES = new Set(["niyyah", "goals", "random"]);
+  const source = VALID_SOURCES.has(payload.source ?? "") ? payload.source! : "random";
 
   const rawTime = Number(payload.timeSpentMs ?? 0);
   const timeSpentMs = Math.max(0, Math.min(MAX_TIME_PER_VERSE_MS, Math.round(rawTime)));
@@ -96,11 +100,13 @@ export async function POST(req: NextRequest) {
       verseNumber: parsed.verseNumber,
       timeSpentMs,
       sessionDate,
+      source: source as any,
     },
     // If the user marks it complete a second time the same day, take the max
     // of recorded time-spent so the total never goes backwards.
     update: {
       timeSpentMs: { set: Math.max(timeSpentMs, 0) },
+      source: source as any,
     },
   });
 
@@ -108,7 +114,7 @@ export async function POST(req: NextRequest) {
   // completions. This is naturally idempotent because we re-derive the
   // aggregate from VerseCompletion rows.
   const dayCompletions = await prisma.verseCompletion.findMany({
-    where: { userId: auth.user.sub, sessionDate, surahId: parsed.surahId },
+    where: { userId: auth.user.sub, sessionDate, surahId: parsed.surahId, source: source as any },
     orderBy: { verseNumber: "asc" },
   });
 
@@ -124,16 +130,18 @@ export async function POST(req: NextRequest) {
 
   await prisma.readingSession.upsert({
     where: {
-      userId_date_surahId: {
+      userId_date_surahId_source: {
         userId: auth.user.sub,
         date: sessionDate,
         surahId: parsed.surahId,
+        source: source as any,
       },
     },
     create: {
       userId: auth.user.sub,
       date: sessionDate,
       surahId: parsed.surahId,
+      source: source as any,
       versesRead,
       minutesRead,
       pagesRead: 0,
@@ -148,14 +156,17 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Sync goals and niyyah journey in-process. Previously this self-fetched
-  // `/api/goals/sync` which doubled the request count and added cold-start
-  // latency on serverless. Failures here don't prevent reporting the verse complete.
+  // Sync goals and niyyah journey in-process based on the reading source.
+  // Niyyah sync only runs for niyyah-sourced reading, goals sync only for
+  // goals-sourced reading. Random reading doesn't feed either streak.
   try {
-    await Promise.all([
-      syncActiveGoalForUser(auth.user.sub),
-      syncNiyyahJourneyForUser(auth.user.sub),
-    ]);
+    const syncTasks: Promise<unknown>[] = [];
+    if (source === "goals") {
+      syncTasks.push(syncActiveGoalForUser(auth.user.sub));
+    } else if (source === "niyyah") {
+      syncTasks.push(syncNiyyahJourneyForUser(auth.user.sub));
+    }
+    if (syncTasks.length > 0) await Promise.all(syncTasks);
   } catch (error) {
     console.error("[verse-progress] Failed to sync goals/niyyah:", error);
   }
@@ -192,13 +203,26 @@ export async function DELETE(req: NextRequest) {
   }
   const sessionDate = todayDate();
 
+  // Look up the source before deleting so we can recompute the right session
+  const existing = await prisma.verseCompletion.findUnique({
+    where: {
+      userId_verseKey_sessionDate: {
+        userId: auth.user.sub,
+        verseKey: parsed.verseKey,
+        sessionDate,
+      },
+    },
+    select: { source: true },
+  });
+  const source = existing?.source ?? "random";
+
   await prisma.verseCompletion.deleteMany({
     where: { userId: auth.user.sub, verseKey: parsed.verseKey, sessionDate },
   });
 
-  // Recompute the day's session row for the affected surah.
+  // Recompute the day's session row for the affected surah and source.
   const dayCompletions = await prisma.verseCompletion.findMany({
-    where: { userId: auth.user.sub, sessionDate, surahId: parsed.surahId },
+    where: { userId: auth.user.sub, sessionDate, surahId: parsed.surahId, source: source as any },
     orderBy: { verseNumber: "asc" },
   });
   const versesRead = dayCompletions.length;
@@ -211,21 +235,23 @@ export async function DELETE(req: NextRequest) {
 
   if (versesRead === 0) {
     await prisma.readingSession.deleteMany({
-      where: { userId: auth.user.sub, date: sessionDate, surahId: parsed.surahId },
+      where: { userId: auth.user.sub, date: sessionDate, surahId: parsed.surahId, source: source as any },
     });
   } else {
     await prisma.readingSession.upsert({
       where: {
-        userId_date_surahId: {
+        userId_date_surahId_source: {
           userId: auth.user.sub,
           date: sessionDate,
           surahId: parsed.surahId,
+          source: source as any,
         },
       },
       create: {
         userId: auth.user.sub,
         date: sessionDate,
         surahId: parsed.surahId,
+        source: source as any,
         versesRead,
         minutesRead,
         pagesRead: 0,

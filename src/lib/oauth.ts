@@ -64,14 +64,16 @@ export const buildLogoutUrl = ({
     url.searchParams.set("id_token_hint", idToken);
   }
 
-  // Always include `post_logout_redirect_uri` and `state` when we have them,
-  // even if `id_token_hint` is missing. The IdP will land the user back on
-  // our app rather than stranding them on the QF logout success page.
+  // Always include `post_logout_redirect_uri` so the IdP redirects back to
+  // our app rather than stranding the user on the QF logout success page.
   if (postLogoutRedirectUri) {
     url.searchParams.set("post_logout_redirect_uri", postLogoutRedirectUri);
   }
 
-  if (postLogoutRedirectUri && state) {
+  // OIDC spec: `state` requires `id_token_hint` to be present. Without it,
+  // the IdP rejects the request with "state is set but id_token_hint is
+  // missing". Only include `state` when we actually have the token hint.
+  if (idToken && postLogoutRedirectUri && state) {
     url.searchParams.set("state", state);
   }
 

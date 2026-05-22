@@ -66,6 +66,7 @@ model NiyyahJourney {
   personalDua   String      @map("personal_dua")
   goalType      GoalType    @map("goal_type")
   goalValue     Int         @map("goal_value")
+  dailyTarget   Int         @default(5) @map("daily_target") // verses per day the user chose
   startDate     DateTime    @map("start_date") @db.Date
   targetDate    DateTime    @map("target_date") @db.Date
   currentStreak Int         @default(0) @map("current_streak")
@@ -115,21 +116,22 @@ model JourneyGift {
 }
 
 model ReadingSession {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String   @map("user_id") @db.VarChar(255)
-  date          DateTime @db.Date
-  surahId       Int      @map("surah_id")
-  versesRead    Int      @default(0) @map("verses_read")
-  minutesRead   Int      @default(0) @map("minutes_read")
-  pagesRead     Int      @default(0) @map("pages_read")
-  firstVerseKey String?  @map("first_verse_key") @db.VarChar(50)
-  lastVerseKey  String?  @map("last_verse_key") @db.VarChar(50)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String        @map("user_id") @db.VarChar(255)
+  date          DateTime      @db.Date
+  surahId       Int           @map("surah_id")
+  versesRead    Int           @default(0) @map("verses_read")
+  minutesRead   Int           @default(0) @map("minutes_read")
+  pagesRead     Int           @default(0) @map("pages_read")
+  firstVerseKey String?       @map("first_verse_key") @db.VarChar(50)
+  lastVerseKey  String?       @map("last_verse_key") @db.VarChar(50)
+  source        ReadingSource @default(random)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at")
 
   // Atomic upsert key — prevents lost updates when several
-  // verse-mark-complete requests land at once for the same surah/day.
-  @@unique([userId, date, surahId])
+  // verse-mark-complete requests land at once for the same surah/day/source.
+  @@unique([userId, date, surahId, source])
   @@index([userId, date])
   @@map("reading_sessions")
 }
@@ -341,18 +343,27 @@ model GoalProgress {
   @@map("goal_progress")
 }
 
+enum ReadingSource {
+  niyyah
+  goals
+  random
+
+  @@map("reading_source")
+}
+
 // One row per (user, verse, day). Time-spent is wall-clock between when the
 // verse was first focused and when the user explicitly marked it complete,
 // minus any time the tab was hidden.
 model VerseCompletion {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String   @map("user_id") @db.VarChar(255)
-  verseKey    String   @map("verse_key") @db.VarChar(20)
-  surahId     Int      @map("surah_id")
-  verseNumber Int      @map("verse_number")
-  timeSpentMs Int      @default(0) @map("time_spent_ms")
-  sessionDate DateTime @map("session_date") @db.Date
-  completedAt DateTime @default(now()) @map("completed_at")
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String        @map("user_id") @db.VarChar(255)
+  verseKey    String        @map("verse_key") @db.VarChar(20)
+  surahId     Int           @map("surah_id")
+  verseNumber Int           @map("verse_number")
+  timeSpentMs Int           @default(0) @map("time_spent_ms")
+  sessionDate DateTime      @map("session_date") @db.Date
+  completedAt DateTime      @default(now()) @map("completed_at")
+  source      ReadingSource @default(random)
 
   @@unique([userId, verseKey, sessionDate])
   @@index([userId, sessionDate])

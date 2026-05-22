@@ -17,6 +17,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+export type ReadingSource = "niyyah" | "goals" | "random";
+
 export interface ReadingTrackerState {
   versesCompleted: number;
   minutesRead: number;
@@ -33,6 +35,7 @@ export interface ReadingTrackerState {
 export function useReadingTracker(
   chapterId: number,
   isLoggedIn: boolean,
+  source: ReadingSource = "random",
 ): ReadingTrackerState {
   const [completedKeys, setCompletedKeys] = useState<Set<string>>(new Set());
   const [minutesRead, setMinutesRead] = useState(0);
@@ -233,7 +236,7 @@ export function useReadingTracker(
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ verseKey, timeSpentMs: estimatedMs }),
+        body: JSON.stringify({ verseKey, timeSpentMs: estimatedMs, source }),
       })
         .then(() => {
           // Dispatch custom event to notify other components

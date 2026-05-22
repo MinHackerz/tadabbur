@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
         personalDua: journey.personalDua,
         goalType: journey.goalType,
         goalValue: journey.goalValue,
+        dailyTarget: journey.dailyTarget,
         startDate: toIso(journey.startDate),
         targetDate: toIso(journey.targetDate),
         completedDays: journey.days.map((d) => ({
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
     const personalDua = asTrimmedString(body.personalDua, MAX_LONG_STRING);
     const goalType = asTrimmedString(body.goalType, MAX_SHORT_STRING);
     const goalValue = asBoundedInt(body.goalValue, 1, MAX_GOAL_VALUE);
+    const dailyTarget = asBoundedInt(body.dailyTarget, 1, 500) ?? 5;
     const startDate = asIsoDate(body.startDate);
     const targetDate = asIsoDate(body.targetDate);
     const readerName = asOptionalTrimmedString(body.readerName, MAX_SHORT_STRING);
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest) {
         personalDua,
         goalType: goalType as GoalType,
         goalValue,
+        dailyTarget: dailyTarget ?? 5,
         startDate,
         targetDate,
         readerName: readerName ?? null,
@@ -140,7 +143,8 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     console.error("[/api/niyyah POST]", error);
-    return NextResponse.json({ error: "Failed to create journey" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to create journey";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

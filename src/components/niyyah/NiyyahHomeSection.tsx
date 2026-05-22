@@ -32,7 +32,7 @@ import RhythmStrip from "./RhythmStrip";
 import TodayReadingCard from "./TodayReadingCard";
 
 interface Props {
-  onOpenReader: (surahId: number, hash?: string) => void;
+  onOpenReader: (surahId: number, hash?: string, source?: string) => void;
   trId: string;
   bookmarkCount: number;
   notesCount: number;
@@ -160,6 +160,7 @@ export default function NiyyahHomeSection({
               personalDua: pendingJourney.personalDua,
               goalType: pendingJourney.goalType,
               goalValue: pendingJourney.goalValue,
+              dailyTarget: pendingJourney.dailyTarget,
               readerName: pendingJourney.readerName,
               startDate: pendingJourney.startDate,
               targetDate: pendingJourney.targetDate,
@@ -291,6 +292,7 @@ export default function NiyyahHomeSection({
         personalDua: j.personalDua,
         goalType: j.goalType,
         goalValue: j.goalValue,
+        dailyTarget: j.dailyTarget,
         readerName: j.readerName,
         startDate: j.startDate,
         targetDate: j.targetDate,
@@ -307,6 +309,7 @@ export default function NiyyahHomeSection({
           personalDua: created.personalDua ?? j.personalDua,
           goalType: created.goalType ?? j.goalType,
           goalValue: created.goalValue ?? j.goalValue,
+          dailyTarget: created.dailyTarget ?? j.dailyTarget,
           startDate: created.startDate ?? j.startDate,
           targetDate: created.targetDate ?? j.targetDate,
           completedDays: created.completedDays ?? [],
@@ -339,7 +342,7 @@ export default function NiyyahHomeSection({
     const p = getTodayPortion(journey);
     // Store timestamp to track when reading started
     sessionStorage.setItem('niyyah_reading_started', Date.now().toString());
-    onOpenReader(p.start.surahId, `verse-${p.start.verseNumber}`);
+    onOpenReader(p.start.surahId, `verse-${p.start.verseNumber}`, "niyyah");
   }
 
   async function handleMarkRead() {
@@ -476,7 +479,7 @@ export default function NiyyahHomeSection({
         bookmarkCount={bookmarkCount}
         notesCount={notesCount}
         isLoggedIn={isLoggedIn}
-        onContinueReader={(surah, hash) => onOpenReader(surah, hash)}
+        onContinueReader={(surah, hash, source) => onOpenReader(surah, hash, source)}
         hasGoal={hasGoal}
         goalLabel={goalLabel}
         goalPlanSummary={goalPlanSummary}

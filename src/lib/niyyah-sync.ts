@@ -20,9 +20,14 @@ const toIso = (d: Date) => d.toISOString().slice(0, 10);
 /**
  * Sync the active niyyah journey for a user based on today's reading sessions.
  *
+ * The niyyah streak is strict: a day only counts if the user has read at
+ * least `dailyTarget` verses. If they miss a day, the streak resets to 0.
+ *
+ * Sequential reading: each day advances by exactly `dailyTarget` verses
+ * regardless of how many extra the user read. This keeps the schedule
+ * predictable.
+ *
  * This is intentionally idempotent: if today is already marked, it returns early.
- * Extracted from the /api/niyyah/sync route so that other server-side code paths
- * (e.g. /api/verse-progress) can invoke it in-process.
  */
 export async function syncNiyyahJourneyForUser(userId: string): Promise<NiyyahSyncResult> {
   // Get the active journey
@@ -46,21 +51,30 @@ export async function syncNiyyahJourneyForUser(userId: string): Promise<NiyyahSy
     return { synced: false, message: "Today already marked" };
   }
 
-  // Get today's reading sessions
+  // Get today's reading sessions (only niyyah-sourced)
   const todaySessions = await prisma.readingSession.findMany({
-    where: { userId, date: today },
+    where: { userId, date: today, source: "niyyah" },
   });
 
   if (todaySessions.length === 0) {
-    return { synced: false, message: "No reading activity today" };
+    return { synced: false, message: "No niyyah reading activity today" };
   }
 
   // Calculate total verses read today
   const totalVersesRead = todaySessions.reduce((sum, s) => sum + s.versesRead, 0);
 
-  // Get verse completions for today to determine the range
+  // Check if the user met their daily target
+  const dailyTarget = journey.dailyTarget || 5;
+  if (totalVersesRead < dailyTarget) {
+    return {
+      synced: false,
+      message: `Need at least ${dailyTarget} verses to complete today's target (read ${totalVersesRead})`,
+    };
+  }
+
+  // Get verse completions for today to determine the range (only niyyah-sourced)
   const todayCompletions = await prisma.verseCompletion.findMany({
-    where: { userId, sessionDate: today },
+    where: { userId, sessionDate: today, source: "niyyah" },
     orderBy: { verseNumber: "asc" },
   });
 
@@ -85,11 +99,7 @@ export async function syncNiyyahJourneyForUser(userId: string): Promise<NiyyahSy
   const startKey = firstCompletion.verseKey;
   const endKey = lastCompletion.verseKey;
 
-  if (totalVersesRead < 1) {
-    return { synced: false, message: "No verses completed today" };
-  }
-
-  // Create the journey day
+  // Create the journey day (only created when daily target is met)
   const newDay = await prisma.niyyahJourneyDay.create({
     data: {
       journeyId: journey.id,
@@ -107,7 +117,7 @@ export async function syncNiyyahJourneyForUser(userId: string): Promise<NiyyahSy
   const totalDays = journey.days.length + 1;
   const isComplete = totalDays >= journey.goalValue;
 
-  // Calculate Niyyah streak (consecutive days with completed portions)
+  // Calculate niyyah streak (strict: consecutive days only, no mercy)
   const allDays = [...journey.days, newDay].sort((a, b) => a.date.getTime() - b.date.getTime());
   let currentStreak = 1;
   let longestStreak = journey.longestStreak;
@@ -120,6 +130,7 @@ export async function syncNiyyahJourneyForUser(userId: string): Promise<NiyyahSy
     if (diffDays === 1) {
       currentStreak++;
     } else {
+      // Any gap > 1 day breaks the streak (strict, no mercy days)
       break;
     }
   }

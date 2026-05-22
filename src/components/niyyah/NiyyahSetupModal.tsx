@@ -6,6 +6,7 @@ import {
   GOAL_PRESETS,
   JOURNEY_TYPES,
   OCCASIONS_BY_TYPE,
+  TOTAL_AYAHS,
   createJourney,
   formatLongDate,
   resolveGoalValue,
@@ -52,6 +53,7 @@ export default function NiyyahSetupModal({ open, initialType, onClose, onSeal }:
   const [goalType, setGoalType] = useState<GoalType>("days");
   const [goalDays, setGoalDays] = useState<number>(40);
   const [customDays, setCustomDays] = useState<number>(21);
+  const [dailyTarget, setDailyTarget] = useState<number>(5);
   const [sealed, setSealed] = useState(false);
 
   useEffect(() => {
@@ -101,6 +103,7 @@ export default function NiyyahSetupModal({ open, initialType, onClose, onSeal }:
         personalDua: dua,
         goalType,
         goalValue: resolveGoalValue(goalType, requested),
+        dailyTarget,
         readerName,
       };
       const journey = createJourney(input);
@@ -318,99 +321,160 @@ export default function NiyyahSetupModal({ open, initialType, onClose, onSeal }:
                   How long shall you walk this path?
                 </h3>
                 <p className="text-center text-[1rem] leading-relaxed text-ny-charcoal/80 mb-5 m-0">
-                  Each length carries its own grace. Pick what fits your heart.
+                  Set your daily reading target and journey length. Each day you must complete your target to keep your streak alive.
                 </p>
 
                 <OrnamentDivider lineWidth="md" glyph="diamond" className="mb-5" />
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5" role="radiogroup" aria-label="Day-based goals">
-                  {GOAL_PRESETS.map((g) => {
-                    const active = goalType === "days" && goalDays === g.value;
-                    return (
-                      <button
-                        key={g.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        onClick={() => {
-                          setGoalType("days");
-                          setGoalDays(g.value);
-                        }}
-                        className={[
-                          "flex flex-col items-center justify-center gap-0.5 p-4 rounded-2xl border-2 transition",
-                          active
-                            ? "bg-gradient-to-b from-ny-gold-soft/40 to-ny-cream border-ny-gold shadow-[0_8px_22px_rgba(184,146,74,0.22)]"
-                            : "bg-ny-ivory border-transparent hover:border-ny-gold/50",
-                        ].join(" ")}
-                      >
-                        <span className="font-[var(--font-niyyah-display)] text-[2.1rem] font-semibold text-ny-ink leading-none">
-                          {g.value}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-ny-sage font-bold">
-                          days
-                        </span>
-                        <span className="mt-1.5 text-[11px] text-center text-ny-charcoal/70 italic">
-                          {g.note}
-                        </span>
-                      </button>
-                    );
-                  })}
+                {/* Daily target selector */}
+                <div className="mb-6">
+                  <label className={cls.label}>Daily reading target (verses per day)</label>
+                  <p className="text-[12px] text-ny-charcoal/65 italic mb-3">
+                    Complete this many verses each day to maintain your streak. Miss a day and your streak resets.
+                  </p>
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="radiogroup" aria-label="Daily target">
+                    {[3, 5, 10, 15, 20, 30, 50, 100, 150, 208].map((t) => {
+                      const active = dailyTarget === t;
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => setDailyTarget(t)}
+                          className={[
+                            "flex flex-col items-center justify-center gap-0.5 p-3 rounded-xl border-2 transition",
+                            active
+                              ? "bg-gradient-to-b from-ny-gold-soft/40 to-ny-cream border-ny-gold shadow-[0_8px_22px_rgba(184,146,74,0.22)]"
+                              : "bg-ny-ivory border-transparent hover:border-ny-gold/50",
+                          ].join(" ")}
+                        >
+                          <span className="font-[var(--font-niyyah-display)] text-[1.5rem] font-semibold text-ny-ink leading-none">
+                            {t}
+                          </span>
+                          <span className="text-[9px] uppercase tracking-[0.14em] text-ny-sage font-bold">
+                            verses
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <label className="text-[12px] text-ny-charcoal/70 font-medium">Or enter custom:</label>
+                    <input
+                      className="w-20 px-3 py-1.5 rounded-lg bg-ny-cream border border-ny-charcoal/15 text-center font-mono text-ny-ink text-sm"
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={dailyTarget}
+                      onChange={(e) => setDailyTarget(Math.max(1, Math.min(500, parseInt(e.target.value || "5", 10))))}
+                    />
+                    <span className="text-[12px] text-ny-charcoal/55">verses/day</span>
+                  </div>
+                  <p className="text-[11px] text-ny-sage italic mt-2">
+                    ~{Math.max(1, Math.round(dailyTarget * 0.6))} minutes per day · {Math.ceil(TOTAL_AYAHS / dailyTarget)} days to complete the Qur&apos;an
+                  </p>
                 </div>
 
-                <div className="grid gap-2 mb-5">
-                  {[
-                    { id: "khatm" as GoalType, label: "1 Khatm", hint: "Complete the Qur'an in 30 days" },
-                    { id: "juz" as GoalType, label: "1 Juz per week", hint: "A gentler 30-week Khatm" },
-                  ].map((row) => {
-                    const active = goalType === row.id;
-                    return (
-                      <button
-                        key={row.id}
-                        type="button"
-                        onClick={() => setGoalType(row.id)}
-                        className={[
-                          "flex items-center justify-between gap-4 px-4 py-3 rounded-xl border font-semibold transition",
-                          active
-                            ? "bg-ny-gold-soft/30 border-ny-gold"
-                            : "bg-ny-ivory border-ny-charcoal/10 hover:border-ny-gold/55",
-                        ].join(" ")}
-                      >
-                        <span className="text-ny-ink">{row.label}</span>
-                        <span className="text-ny-charcoal/55 text-[12px] font-normal italic">{row.hint}</span>
-                      </button>
-                    );
-                  })}
+                <OrnamentDivider lineWidth="sm" glyph="star" className="mb-5" />
 
-                  <button
-                    type="button"
-                    onClick={() => setGoalType("custom")}
-                    className={[
-                      "flex items-center justify-between gap-4 px-4 py-3 rounded-xl border font-semibold transition",
-                      goalType === "custom"
-                        ? "bg-ny-gold-soft/30 border-ny-gold"
-                        : "bg-ny-ivory border-ny-charcoal/10 hover:border-ny-gold/55",
-                    ].join(" ")}
-                  >
-                    <span className="text-ny-ink">Custom days</span>
-                    {goalType === "custom" ? (
-                      <input
-                        className="w-20 px-3 py-1.5 rounded-lg bg-ny-cream border border-ny-charcoal/15 text-center font-mono text-ny-ink"
-                        type="number"
-                        min={1}
-                        max={365}
-                        value={customDays}
-                        onChange={(e) => setCustomDays(parseInt(e.target.value || "1", 10))}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span className="text-ny-charcoal/55 text-[12px] font-normal italic">Define your own span</span>
-                    )}
-                  </button>
+                {/* Journey length */}
+                <div className="mb-5">
+                  <label className={cls.label}>Journey length</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4" role="radiogroup" aria-label="Day-based goals">
+                    {GOAL_PRESETS.map((g) => {
+                      const active = goalType === "days" && goalDays === g.value;
+                      return (
+                        <button
+                          key={g.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => {
+                            setGoalType("days");
+                            setGoalDays(g.value);
+                          }}
+                          className={[
+                            "flex flex-col items-center justify-center gap-0.5 p-3 rounded-2xl border-2 transition",
+                            active
+                              ? "bg-gradient-to-b from-ny-gold-soft/40 to-ny-cream border-ny-gold shadow-[0_8px_22px_rgba(184,146,74,0.22)]"
+                              : "bg-ny-ivory border-transparent hover:border-ny-gold/50",
+                          ].join(" ")}
+                        >
+                          <span className="font-[var(--font-niyyah-display)] text-[1.8rem] font-semibold text-ny-ink leading-none">
+                            {g.value}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-[0.14em] text-ny-sage font-bold">
+                            days
+                          </span>
+                          <span className="mt-1 text-[10px] text-center text-ny-charcoal/70 italic">
+                            {g.note}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid gap-2">
+                    {[
+                      { id: "khatm" as GoalType, label: "1 Khatm", hint: "Complete the Qur'an in 30 days" },
+                      { id: "juz" as GoalType, label: "1 Juz per week", hint: "A gentler 30-week Khatm" },
+                    ].map((row) => {
+                      const active = goalType === row.id;
+                      return (
+                        <button
+                          key={row.id}
+                          type="button"
+                          onClick={() => setGoalType(row.id)}
+                          className={[
+                            "flex items-center justify-between gap-4 px-4 py-3 rounded-xl border font-semibold transition",
+                            active
+                              ? "bg-ny-gold-soft/30 border-ny-gold"
+                              : "bg-ny-ivory border-ny-charcoal/10 hover:border-ny-gold/55",
+                          ].join(" ")}
+                        >
+                          <span className="text-ny-ink">{row.label}</span>
+                          <span className="text-ny-charcoal/55 text-[12px] font-normal italic">{row.hint}</span>
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={() => setGoalType("custom")}
+                      className={[
+                        "flex items-center justify-between gap-4 px-4 py-3 rounded-xl border font-semibold transition",
+                        goalType === "custom"
+                          ? "bg-ny-gold-soft/30 border-ny-gold"
+                          : "bg-ny-ivory border-ny-charcoal/10 hover:border-ny-gold/55",
+                      ].join(" ")}
+                    >
+                      <span className="text-ny-ink">Custom days</span>
+                      {goalType === "custom" ? (
+                        <input
+                          className="w-20 px-3 py-1.5 rounded-lg bg-ny-cream border border-ny-charcoal/15 text-center font-mono text-ny-ink"
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={customDays}
+                          onChange={(e) => setCustomDays(parseInt(e.target.value || "1", 10))}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="text-ny-charcoal/55 text-[12px] font-normal italic">Define your own span</span>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 px-4 py-3 mb-2 rounded-xl bg-ny-cream-warm/60 border border-dashed border-ny-gold/40">
                   <span className="text-ny-charcoal/65 text-[13px] italic">Targets to complete by</span>
                   <strong className="text-ny-ink">{formatLongDate(targetIso)}</strong>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 px-4 py-2 mb-2 rounded-xl bg-ny-forest/5 border border-ny-forest/20">
+                  <span className="text-ny-charcoal/65 text-[12px]">Total verses in journey</span>
+                  <strong className="text-ny-forest text-[13px]">{(goalValue * dailyTarget).toLocaleString()} verses ({dailyTarget}/day × {goalValue} days)</strong>
                 </div>
 
                 <ActionRow>

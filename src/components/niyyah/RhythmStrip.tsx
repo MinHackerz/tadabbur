@@ -28,7 +28,7 @@ interface Props {
   bookmarkCount: number;
   notesCount: number;
   isLoggedIn: boolean;
-  onContinueReader: (surahId: number, hash?: string) => void;
+  onContinueReader: (surahId: number, hash?: string, source?: string) => void;
   hasGoal: boolean;
   goalLabel?: string;
   goalPlanSummary?: string | null;
@@ -112,6 +112,7 @@ export default function RhythmStrip({
             onContinueReader(
               lastSession?.surahId ?? 1,
               lastVerse ? `verse-${lastVerse}` : undefined,
+              "goals",
             )
           }
           className="rhythm-btn rhythm-btn--primary mt-auto"

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { flushSync } from "react-dom";
 import { prefetchHadith, prefetchReflect, prefetchTafsir, prefetchTranslations } from "./insightApi";
 import type { ContentPreviewItem, ReaderPayload } from "@/lib/types";
@@ -12,7 +13,7 @@ import VerseInsightPanel from "./VerseInsightPanel";
 import type { InsightTab } from "./insightTypes";
 import { useReaderAudio } from "./useReaderAudio";
 import { useReaderScrollCompact } from "./useReaderScrollCompact";
-import { useReadingTracker } from "./useReadingTracker";
+import { useReadingTracker, type ReadingSource } from "./useReadingTracker";
 import { FONT_SIZE_MAP } from "./fontSizes";
 import { READER_MODE_TABS } from "./readerModeTabs";
 import { RECITERS, TRANSLATIONS } from "./readerSession";
@@ -122,7 +123,11 @@ export default function ReaderView({
   const fontClasses = FONT_SIZE_MAP[fontSize] ?? FONT_SIZE_MAP[3];
   const cid = rData?.chapter.id ?? (parseInt(chapterId, 10) || 1);
   const readerAudio = useReaderAudio(setActiveVerse);
-  const tracker = useReadingTracker(cid, isLoggedIn);
+
+  // Determine reading source from URL query param (?source=niyyah|goals|random)
+  const searchParams = useSearchParams();
+  const readingSource = (searchParams.get("source") as ReadingSource) || "random";
+  const tracker = useReadingTracker(cid, isLoggedIn, readingSource);
 
   useEffect(() => {
     readerAudio.stop();

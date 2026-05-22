@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       personalDua: j.personalDua,
       goalType: j.goalType,
       goalValue: j.goalValue,
+      dailyTarget: j.dailyTarget,
       startDate: toIso(j.startDate),
       targetDate: toIso(j.targetDate),
       completedDays: j.days.map((d) => ({

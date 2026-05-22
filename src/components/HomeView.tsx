@@ -40,7 +40,7 @@ export interface HomeViewProps {
   setFontSize: (n: number) => void;
   darkMode: boolean;
   toggleDarkMode: () => void;
-  onOpenReader: (surah?: number, hash?: string) => void;
+  onOpenReader: (surah?: number, hash?: string, source?: string) => void;
 }
 
 export default function HomeView({
@@ -56,7 +56,7 @@ export default function HomeView({
   return (
     <div className="relative pb-24 md:pb-12 niyyah-scope">
       <NiyyahHomeSection
-        onOpenReader={(surah, hash) => onOpenReader(surah, hash)}
+        onOpenReader={(surah, hash, source) => onOpenReader(surah, hash, source)}
         trId={trId}
         bookmarkCount={bookmarkCount}
         notesCount={notesCount}

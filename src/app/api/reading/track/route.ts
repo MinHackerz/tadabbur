@@ -43,17 +43,21 @@ export async function POST(req: NextRequest) {
         ? null
         : parseVerseKeyStrict(body.lastVerseKey)?.verseKey ?? null;
 
-    // Atomic upsert with the new unique (userId, date, surahId). The previous
+    const VALID_SOURCES = new Set(["niyyah", "goals", "random"]);
+    const source = VALID_SOURCES.has(body.source as string ?? "") ? (body.source as string) : "random";
+
+    // Atomic upsert with the new unique (userId, date, surahId, source). The previous
     // `findFirst → update` was a TOCTOU race that lost updates from
     // concurrent visibility/verse-completion handlers. We read the existing
     // row first only to compute monotonic-max aggregates; the actual write
     // is the upsert.
     const existing = await prisma.readingSession.findUnique({
       where: {
-        userId_date_surahId: {
+        userId_date_surahId_source: {
           userId: user.sub,
           date,
           surahId,
+          source: source as any,
         },
       },
       select: {
@@ -77,16 +81,18 @@ export async function POST(req: NextRequest) {
 
     await prisma.readingSession.upsert({
       where: {
-        userId_date_surahId: {
+        userId_date_surahId_source: {
           userId: user.sub,
           date,
           surahId,
+          source: source as any,
         },
       },
       create: {
         userId: user.sub,
         date,
         surahId,
+        source: source as any,
         ...merged,
       },
       update: merged,

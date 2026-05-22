@@ -47,7 +47,7 @@ async function computeProgress(userId: string, goal: { period: string; type: str
   }
 
   const sessions = await prisma.readingSession.findMany({
-    where: { userId, date: { gte: periodStart } },
+    where: { userId, date: { gte: periodStart }, source: "goals" },
   });
 
   if (goal.type === "VERSES") {

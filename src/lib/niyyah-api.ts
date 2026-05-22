@@ -215,6 +215,7 @@ export async function migrateLocalStorageToDatabase(journey: Journey): Promise<b
       personalDua: journey.personalDua,
       goalType: journey.goalType,
       goalValue: journey.goalValue,
+      dailyTarget: journey.dailyTarget,
       readerName: journey.readerName,
       startDate: journey.startDate,
       targetDate: journey.targetDate,

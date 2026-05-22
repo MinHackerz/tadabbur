@@ -98,10 +98,10 @@ export function useInsight(chapterId:string,route:string) {
     if(n>=1&&n<=114)navigateSurah(n);
   }
 
-  const openReader = useCallback((surah?:number,hash?:string)=>{
+  const openReader = useCallback((surah?:number,hash?:string,source?:string)=>{
     const next={...session,surahId:surah??session.surahId};
     patchSession({surahId:next.surahId});
-    router.push(buildReaderUrl(next,hash));
+    router.push(buildReaderUrl(next,hash,source));
   },[router,session,patchSession]);
 
   async function bookmarkVerse(chapter:number,verse:number){
