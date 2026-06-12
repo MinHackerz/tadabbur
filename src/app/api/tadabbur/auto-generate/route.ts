@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { selectRandomVerse, getCurrentHijriDate } from "@/lib/tadabbur-helpers";
@@ -91,7 +93,9 @@ export async function POST(req: NextRequest) {
         verseKey: true,
       },
     });
-    const usedVerseKeys = new Set(existingVerses.map((v) => v.verseKey));
+    const usedVerseKeys = new Set(
+      existingVerses.map((v: { verseKey: string }) => v.verseKey),
+    );
 
     for (let i = 0; i < circlesToGenerate; i++) {
       // Try to find a verse that hasn't been used this year
