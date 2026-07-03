@@ -26,7 +26,7 @@ import DedicationHero from "./DedicationHero";
 import GiftTokenPreview from "./GiftTokenPreview";
 import JourneyTimeline from "./JourneyTimeline";
 import JourneyTypeSelector from "./JourneyTypeSelector";
-import { OrnamentDivider } from "./Ornament";
+import { GoldCorners, OrnamentDivider } from "./Ornament";
 import ProgressVessel from "./ProgressVessel";
 import RhythmStrip from "./RhythmStrip";
 import TodayReadingCard from "./TodayReadingCard";
@@ -208,6 +208,9 @@ export default function NiyyahHomeSection({
         // Load from database
         const dbJourney = await fetchJourney();
         setJourney(dbJourney);
+        if (dbJourney?.isComplete) {
+          setCeremonyOpen(true);
+        }
       } else {
         // Not logged in, check localStorage only
         setJourney(localJourney);
@@ -462,11 +465,44 @@ export default function NiyyahHomeSection({
 
           <div className="grid gap-5 lg:grid-cols-[1.05fr_1fr] mb-2 max-w-6xl mx-auto">
             <ProgressVessel journey={journey} />
-            <TodayReadingCard
-              journey={journey}
-              onBegin={handleBegin}
-              onMarkRead={handleMarkRead}
-            />
+            {journey.isComplete ? (
+              <article className="relative flex flex-col justify-center items-center text-center gap-4 p-6 sm:p-7 rounded-3xl border border-ny-gold/35 bg-gradient-to-b from-ny-cream-warm/40 to-ny-cream parchment-bg overflow-hidden shadow-[0_18px_40px_rgba(28,58,47,0.10)]">
+                <GoldCorners inset="0.6rem" />
+                <div className="text-4xl">🏆</div>
+                <h3 className="font-[var(--font-niyyah-display)] text-[1.6rem] sm:text-[1.8rem] font-semibold text-ny-forest leading-tight m-0">
+                  Intention Fulfilled!
+                </h3>
+                <p className="text-[13px] text-ny-sage italic max-w-sm">
+                  You have successfully completed this reading dedicated to{" "}
+                  <span className="text-ny-ink font-semibold not-italic">
+                    {journey.recipientName}
+                  </span>
+                  . May Allah accept your beautiful effort.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCeremonyOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-semibold text-ny-forest bg-gradient-to-br from-ny-gold-soft via-ny-gold-bright to-ny-gold border border-ny-gold shadow-lg hover:shadow-xl transition-all"
+                  >
+                    View Gift Ceremony
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStartAnother}
+                    className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-semibold text-ny-ink bg-transparent border border-ny-charcoal/20 hover:bg-ny-charcoal/5 transition-colors"
+                  >
+                    Start a New Niyyah
+                  </button>
+                </div>
+              </article>
+            ) : (
+              <TodayReadingCard
+                journey={journey}
+                onBegin={handleBegin}
+                onMarkRead={handleMarkRead}
+              />
+            )}
           </div>
 
           <div className="max-w-6xl mx-auto">

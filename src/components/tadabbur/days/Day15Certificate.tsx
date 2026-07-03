@@ -22,7 +22,7 @@ export default function Day15Certificate({
 }: Props) {
   const [userNameInput, setUserNameInput] = useState("");
   const [generating, setGenerating] = useState(() => !!progress?.certificate);
-  const [certificateGenerated, setCertificateGenerated] = useState(false);
+  const [certificateGenerated, setCertificateGenerated] = useState(() => !!progress?.certificate);
   const [certificateData, setCertificateData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 

@@ -94,6 +94,12 @@ export async function GET(req: NextRequest) {
               completed: a.completed,
               note: a.note,
             })),
+            certificate: userProgress.certificate ? {
+              id: userProgress.certificate.id,
+              verseKey: userProgress.certificate.verseKey,
+              completedAt: userProgress.certificate.completedAt ? toIso(userProgress.certificate.completedAt) : null,
+              shareableUrl: userProgress.certificate.shareableUrl,
+            } : null,
           } : null,
         };
       })

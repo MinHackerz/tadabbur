@@ -4,6 +4,7 @@ import { prisma } from "@/db";
 export async function GET() {
   try {
     const journeys = await prisma.niyyahJourney.findMany({
+      where: { isActive: true },
       orderBy: { createdAt: "desc" },
       take: 50,
       select: {
@@ -12,30 +13,32 @@ export async function GET() {
         goalValue: true,
         isComplete: true,
         createdAt: true,
+        updatedAt: true,
         _count: { select: { days: true } },
       },
     });
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const wallItems = journeys.map((j: typeof journeys[number]) => {
-      const journeyDate = j.createdAt.toISOString().slice(0, 10);
-      const isCompletedToday = j.isComplete && journeyDate === today;
+    const wallItems = journeys.map((j) => {
+      const completionDate = j.updatedAt.toISOString().slice(0, 10);
+      const isCompletedToday = j.isComplete && completionDate === today;
       return {
         type: j.type,
         occasion: j.type === "living" ? j.occasion : undefined,
         day: j._count.days,
         total: j.goalValue,
         region: "Community",
-        isComplete: isCompletedToday,
+        isComplete: j.isComplete,
+        isCompletedToday,
       };
     });
 
     const activeJourneys = wallItems
-      .filter((w: typeof wallItems[number]) => !w.isComplete)
+      .filter((w) => !w.isComplete)
       .slice(0, 6);
     const completedToday = wallItems
-      .filter((w: typeof wallItems[number]) => w.isComplete)
+      .filter((w) => w.isCompletedToday)
       .slice(0, 2);
 
     // Fisher–Yates shuffle. The previous `sort(() => Math.random() - 0.5)`
