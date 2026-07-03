@@ -166,28 +166,83 @@ const createAuthenticatedFetch = (session: StoredSession, config: ReturnType<typ
 // App token cache for client_credentials grant (used for content API).
 // Exported so other server routes can reuse the cache instead of re-fetching
 // per request and avoid double-implementations.
+//
+// IMPORTANT — Promise coalescing:
+// On Vercel serverless each Lambda instance has its own `_appToken` in memory.
+// When the token expires, multiple concurrent handlers within the *same*
+// instance used to all fire their own POST /oauth2/token (thundering herd).
+// `_appTokenPending` ensures only the first caller fetches; everyone else
+// awaits the same in-flight promise.
 let _appToken: { value: string; expiresAt: number } | null = null;
+let _appTokenPending: Promise<string> | null = null;
+
+/** Fetch a token with exponential back-off + jitter (max 3 retries). */
+const fetchAppTokenWithBackoff = async (
+  clientId: string,
+  clientSecret: string,
+  oauth2BaseUrl: string,
+  maxRetries = 3,
+): Promise<{ access_token: string; expires_in: number }> => {
+  const authHeader =
+    "Basic " + Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const resp = await fetch(`${oauth2BaseUrl}/oauth2/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: authHeader,
+        },
+        body: "grant_type=client_credentials&scope=content",
+      });
+      if (!resp.ok) {
+        throw new Error(`App token request failed: ${resp.status}`);
+      }
+      return (await resp.json()) as { access_token: string; expires_in: number };
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      // Exponential backoff: 500 ms → 1 s → 2 s, plus 0-500 ms jitter.
+      const baseDelay = 500 * Math.pow(2, attempt);
+      const jitter = Math.random() * 500;
+      await new Promise((r) => setTimeout(r, baseDelay + jitter));
+    }
+  }
+  // Unreachable — the loop either returns or throws on the last attempt.
+  throw new Error("App token fetch failed after retries");
+};
 
 export const getAppToken = async (
   clientId: string,
   clientSecret: string,
   oauth2BaseUrl: string,
 ): Promise<string> => {
-  if (_appToken && _appToken.expiresAt > Date.now() + 30_000) {
+  // Return cached token if still valid (refresh 60 s before expiry so
+  // concurrent callers don't all start fetching in the last seconds).
+  if (_appToken && _appToken.expiresAt > Date.now() + 60_000) {
     return _appToken.value;
   }
-  const resp = await fetch(`${oauth2BaseUrl}/oauth2/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: "Basic " + Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
-    },
-    body: "grant_type=client_credentials&scope=content",
-  });
-  if (!resp.ok) throw new Error(`App token request failed: ${resp.status}`);
-  const j = (await resp.json()) as { access_token: string; expires_in: number };
-  _appToken = { value: j.access_token, expiresAt: Date.now() + j.expires_in * 1000 };
-  return _appToken.value;
+
+  // If another caller is already fetching, piggy-back on its promise.
+  if (_appTokenPending) {
+    return _appTokenPending;
+  }
+
+  // This caller wins the race — everyone else will await _appTokenPending.
+  _appTokenPending = (async () => {
+    try {
+      const j = await fetchAppTokenWithBackoff(clientId, clientSecret, oauth2BaseUrl);
+      _appToken = {
+        value: j.access_token,
+        expiresAt: Date.now() + j.expires_in * 1000,
+      };
+      return _appToken.value;
+    } finally {
+      _appTokenPending = null;
+    }
+  })();
+
+  return _appTokenPending;
 };
 
 // Authenticated fetch for content API (uses app token + x-client-id header)
