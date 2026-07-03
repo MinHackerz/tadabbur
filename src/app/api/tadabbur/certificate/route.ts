@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const userName = await getUserDisplayName(userId);
 
     const body = await req.json();
-    const { progressId, circleId, verseKey } = body;
+    const { progressId, circleId, verseKey, verseTranslation } = body;
 
     if (!progressId || !circleId || !verseKey) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       const svg = await generateCertificateSVG({
         userName,
         verseKey: existing.verseKey,
-        verseText: progress.circle.verseKey, // This should be the actual verse text
+        verseText: verseTranslation || `Quran ${existing.verseKey}`,
         completedAt: existing.completedAt,
         certificateId: existing.id,
         verificationUrl,
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         message: "Certificate already exists",
         certificate: existing,
         svg,
-        filename: generateCertificateFilename(existing.verseKey, existing.completedAt, 'pdf'),
+        filename: generateCertificateFilename(existing.verseKey, existing.completedAt, 'svg'),
       });
     }
 
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     const svg = await generateCertificateSVG({
       userName,
       verseKey: certificate.verseKey,
-      verseText: progress.circle.verseKey,
+      verseText: verseTranslation || `Quran ${certificate.verseKey}`,
       completedAt: certificate.completedAt,
       certificateId: certificate.id,
       verificationUrl: fullVerificationUrl,
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       message: "Certificate generated successfully",
       certificate: { ...certificate, shareableUrl: fullVerificationUrl },
       svg,
-      filename: generateCertificateFilename(certificate.verseKey, certificate.completedAt, 'pdf'),
+      filename: generateCertificateFilename(certificate.verseKey, certificate.completedAt, 'svg'),
     });
   } catch (error) {
     console.error("[/api/tadabbur/certificate POST]", error);

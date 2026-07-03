@@ -32,10 +32,12 @@ export default function Day15Certificate({
       const response = await fetch("/api/tadabbur/certificate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           progressId: progress.id,
           circleId,
           verseKey,
+          verseTranslation,
         }),
       });
 
@@ -61,78 +63,18 @@ export default function Day15Certificate({
   }
 
   function downloadCertificate(svg: string, filename: string) {
-    // Convert SVG to PDF using browser's built-in capabilities
-    // Create a blob from the SVG
+    // Download the certificate as an SVG file directly.
+    // The previous iframe-print approach was fragile and often failed.
+    const svgFilename = filename.replace(/\.pdf$/i, '.svg');
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    
-    // Create a temporary iframe to render and print the SVG
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = 'none';
-    
-    document.body.appendChild(iframe);
-    
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      // Fallback: download as SVG
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      return;
-    }
-    
-    // Write SVG to iframe
-    iframeDoc.open();
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Certificate</title>
-          <style>
-            body { margin: 0; padding: 0; }
-            svg { display: block; width: 100%; height: auto; }
-          </style>
-        </head>
-        <body>${svg}</body>
-      </html>
-    `);
-    iframeDoc.close();
-    
-    // Wait for content to load, then trigger print dialog
-    iframe.onload = () => {
-      setTimeout(() => {
-        try {
-          // Try to use the browser's print-to-PDF functionality
-          iframe.contentWindow?.print();
-          
-          // Clean up after a delay
-          setTimeout(() => {
-            document.body.removeChild(iframe);
-            URL.revokeObjectURL(url);
-          }, 1000);
-        } catch (error) {
-          console.error('Print failed, falling back to SVG download:', error);
-          // Fallback: download as SVG
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename.replace('.pdf', '.svg');
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          document.body.removeChild(iframe);
-          URL.revokeObjectURL(url);
-        }
-      }, 500);
-    };
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = svgFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   function handleViewCertificate() {
