@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
         include: {
           journals: { orderBy: { day: "asc" } },
           actions: { orderBy: { day: "asc" } },
+          certificate: true,
         },
         orderBy: { createdAt: "desc" },
       });

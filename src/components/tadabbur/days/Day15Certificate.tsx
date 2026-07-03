@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ChatGPTContent from "./ChatGPTContent";
 
 interface Props {
@@ -21,10 +21,41 @@ export default function Day15Certificate({
   onGenerateCertificate
 }: Props) {
   const [userNameInput, setUserNameInput] = useState("");
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating] = useState(() => !!progress?.certificate);
   const [certificateGenerated, setCertificateGenerated] = useState(false);
   const [certificateData, setCertificateData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-load existing certificate if it was already generated
+  useEffect(() => {
+    if (progress?.certificate) {
+      fetch("/api/tadabbur/certificate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          progressId: progress.id,
+          circleId,
+          verseKey,
+          verseTranslation,
+        }),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error("Failed to load existing certificate");
+          }
+          const data = await response.json();
+          setCertificateData(data);
+          setCertificateGenerated(true);
+        })
+        .catch((err) => {
+          console.error("Failed to load existing certificate:", err);
+        })
+        .finally(() => {
+          setGenerating(false);
+        });
+    }
+  }, [progress, circleId, verseKey, verseTranslation]);
 
   async function handleGenerateCertificate() {
     const name = userNameInput.trim();
