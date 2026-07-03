@@ -20,12 +20,18 @@ export default function Day15Certificate({
   progress,
   onGenerateCertificate
 }: Props) {
+  const [userNameInput, setUserNameInput] = useState("");
   const [generating, setGenerating] = useState(false);
   const [certificateGenerated, setCertificateGenerated] = useState(false);
   const [certificateData, setCertificateData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGenerateCertificate() {
+    const name = userNameInput.trim();
+    if (!name) {
+      setError("Please enter your name for the certificate.");
+      return;
+    }
     setGenerating(true);
     setError(null);
     try {
@@ -38,6 +44,7 @@ export default function Day15Certificate({
           circleId,
           verseKey,
           verseTranslation,
+          customName: name,
         }),
       });
 
@@ -193,11 +200,30 @@ export default function Day15Certificate({
         )}
 
         {!certificateGenerated ? (
-          <button
-            onClick={handleGenerateCertificate}
-            disabled={generating}
-            className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-accent text-white rounded-xl font-semibold text-[15px] hover:bg-accent-hover transition-all shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <div className="space-y-6">
+            <div className="max-w-md mx-auto text-left bg-surface-secondary border border-border p-5 rounded-xl shadow-sm">
+              <label htmlFor="certificate-name" className="block text-[13px] font-bold text-ink uppercase tracking-wider mb-2">
+                Enter Your Full Name
+              </label>
+              <input
+                id="certificate-name"
+                type="text"
+                value={userNameInput}
+                onChange={(e) => setUserNameInput(e.target.value)}
+                placeholder="e.g., Minhaj Ahmed"
+                className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-[14px] text-ink focus:outline-none focus:border-accent transition-colors"
+                disabled={generating}
+              />
+              <p className="text-[11px] text-ink-tertiary mt-2 leading-relaxed">
+                This name will be written on your verified certificate and saved to your profile display settings.
+              </p>
+            </div>
+
+            <button
+              onClick={handleGenerateCertificate}
+              disabled={generating}
+              className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-accent text-white rounded-xl font-semibold text-[15px] hover:bg-accent-hover transition-all shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
             {generating ? (
               <>
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -212,6 +238,7 @@ export default function Day15Certificate({
               </>
             )}
           </button>
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-xl font-semibold text-[14px]">

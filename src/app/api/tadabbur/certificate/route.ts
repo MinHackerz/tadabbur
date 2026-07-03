@@ -13,14 +13,22 @@ export async function POST(req: NextRequest) {
 
     const userId = user.sub;
     
-    // Get user display name from database
-    const userName = await getUserDisplayName(userId);
-
     const body = await req.json();
-    const { progressId, circleId, verseKey, verseTranslation } = body;
+    const { progressId, circleId, verseKey, verseTranslation, customName } = body;
 
     if (!progressId || !circleId || !verseKey) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    let userName = await getUserDisplayName(userId);
+    if (customName && typeof customName === "string" && customName.trim()) {
+      const trimmed = customName.trim();
+      await prisma.user.upsert({
+        where: { id: userId },
+        update: { name: trimmed },
+        create: { id: userId, name: trimmed },
+      }).catch(() => null);
+      userName = trimmed;
     }
 
     // Verify the progress belongs to the user

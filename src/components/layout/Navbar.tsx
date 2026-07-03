@@ -22,11 +22,11 @@ const MOBILE_TAB: {href:string;key:ActiveRoute;label:string;icon:React.ReactNode
   {href:"/goals",key:"goals",label:"Goals",icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} width={20} height={20}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>},
 ];
 
-export default function Navbar({active,loggedIn,userName,readerChapterId}:{active:ActiveRoute;loggedIn:boolean;userName?:string|null;readerChapterId?:string}) {
+export default function Navbar({active,loggedIn,userEmail,readerChapterId}:{active:ActiveRoute;loggedIn:boolean;userEmail?:string|null;readerChapterId?:string}) {
   const readerHref = readerChapterId ? `/read/${readerChapterId}` : "/read/1";
   const [open,setOpen]=useState(false);
   const [scrolled,setScrolled]=useState(false);
-  const displayName = userName ?? null;
+  const displayName = userEmail ? userEmail.split("@")[0] : null;
   const initial = displayName?.charAt(0).toUpperCase();
 
   useEffect(()=>{

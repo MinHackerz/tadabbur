@@ -40,7 +40,7 @@ export default function InsightShell({route,chapterId="1"}:{route:string;chapter
   );
 
   return (
-    <PageShell active={route as any} loggedIn={li} userName={(() => { const t = d.idTokenSummary as {firstName?: string; lastName?: string; email?: string} | null; if (t?.firstName) return [t.firstName, t.lastName].filter(Boolean).join(" "); if (t?.email) return t.email.split("@")[0]; return null; })()} variant={isReader?"reader":route==="home"?"home":isFeature?"feature":"default"} readerChapterId={chapterId}>
+    <PageShell active={route as any} loggedIn={li} userEmail={(d.userInfo?.data as {name?: string; email?: string} | null)?.name ?? (d.userInfo?.data as {email?: string} | null)?.email ?? null} variant={isReader?"reader":route==="home"?"home":isFeature?"feature":"default"} readerChapterId={chapterId}>
       {/* Auth error / flash notice banner */}
       {d.authError && (
         <div className="mx-auto max-w-3xl px-4 pt-16 pb-0">

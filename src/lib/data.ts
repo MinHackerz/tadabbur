@@ -1,5 +1,7 @@
 import "server-only";
 
+import { prisma } from "@/db";
+
 import { DEFAULT_FEED_QUERY, LIST_PREVIEW_LIMIT, SESSION_EXPIRED_MESSAGE } from "@/lib/constants";
 import { postMatchesVerse } from "@/lib/reflectPosts";
 import { getConfig } from "@/lib/env";
@@ -1067,10 +1069,24 @@ export const loadBootstrapData = async (
     });
   }
 
+  const dbUser = userId
+    ? await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null)
+    : null;
+
   const currentSession = (session.userSession ?? initialUserSession) as Record<string, unknown>;
   const currentScopes = getGrantedScopes(session);
   const idTokenSummary = summarizeIdToken(currentSession.idToken);
-  const normalizedUserInfo = asNullableObject(userInfoResult.data);
+  let normalizedUserInfo = asNullableObject(userInfoResult.data);
+  
+  if (userId) {
+    if (!normalizedUserInfo) {
+      normalizedUserInfo = {};
+    }
+    if (dbUser?.name) {
+      (normalizedUserInfo as Record<string, unknown>).name = dbUser.name;
+    }
+  }
+
   const normalizedPreferences = asNullableObject(preferencesResult.data);
   const normalizedProfile = asNullableObject(profileResult.data);
 
