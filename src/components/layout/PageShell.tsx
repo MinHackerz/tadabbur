@@ -4,7 +4,7 @@ import Navbar, { type ActiveRoute } from "./Navbar";
 export default function PageShell({
   active,
   loggedIn,
-  userEmail,
+  userName,
   title,
   subtitle,
   variant = "default",
@@ -13,7 +13,7 @@ export default function PageShell({
 }: {
   active: ActiveRoute;
   loggedIn: boolean;
-  userEmail?: string | null;
+  userName?: string | null;
   title?: string;
   subtitle?: string;
   variant?: "default" | "reader" | "home" | "feature";
@@ -27,7 +27,7 @@ export default function PageShell({
 
   return (
     <div className={`min-h-screen pt-14 ${isReader ? "pb-28 md:pb-24" : "pb-16 md:pb-0"}`}>
-      <Navbar active={active} loggedIn={loggedIn} userEmail={userEmail} readerChapterId={readerChapterId} />
+      <Navbar active={active} loggedIn={loggedIn} userName={userName} readerChapterId={readerChapterId} />
       <main
         className={`mx-auto w-full ${
           isReader
