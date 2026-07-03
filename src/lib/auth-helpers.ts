@@ -58,17 +58,21 @@ export async function getUserFromSession(req: NextRequest): Promise<User | null>
   let name: string | undefined;
   let firstName: string | undefined;
   let lastName: string | undefined;
-  
-  // If not found, decode it from the idToken
-  if (!sub) {
-    const idToken = session.idToken ?? session.id_token;
-    if (typeof idToken === 'string') {
-      const claims = decodeJwt(idToken);
-      sub = claims?.sub as string | undefined;
-      email = claims?.email as string | undefined;
-      name = claims?.name as string | undefined;
-      firstName = claims?.first_name as string | undefined;
-      lastName = claims?.last_name as string | undefined;
+
+  // Always try to decode profile fields (name, email) from the idToken.
+  // Previously this block only ran when `sub` was missing, so when `sub`
+  // was present on the session directly the name fields stayed undefined,
+  // causing the User record to store nulls and the certificate to show
+  // the fallback "Learner".
+  const idToken = session.idToken ?? session.id_token;
+  if (typeof idToken === 'string') {
+    const claims = decodeJwt(idToken);
+    if (claims) {
+      if (!sub) sub = claims.sub as string | undefined;
+      email = claims.email as string | undefined;
+      name = claims.name as string | undefined;
+      firstName = claims.first_name as string | undefined;
+      lastName = claims.last_name as string | undefined;
     }
   }
 
